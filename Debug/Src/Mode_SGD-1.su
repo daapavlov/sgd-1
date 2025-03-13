@@ -1,0 +1,4 @@
+Mode_SGD-1.c:4:9:ModeConfiguration	8	static
+Mode_SGD-1.c:14:9:ModeNorm	0	static
+Mode_SGD-1.c:19:9:ModeMalfunction	0	static
+Mode_SGD-1.c:24:9:ModeAnxiety	0	static

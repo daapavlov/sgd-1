@@ -1,0 +1,3 @@
+portevent.c:37:6:xMBPortEventInit	0	static
+portevent.c:46:6:xMBPortEventPost	0	static
+portevent.c:56:6:xMBPortEventGet	0	static

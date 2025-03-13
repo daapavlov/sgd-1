@@ -1,0 +1,3 @@
+TimerConf.c:4:6:InitTIM17	0	static
+TimerConf.c:24:6:InitTIM14	0	static
+TimerConf.c:48:6:InitTIM15	0	static

@@ -1,0 +1,4 @@
+mt_port.c:29:6:EnterCriticalSection	0	static,ignoring_inline_asm
+mt_port.c:38:6:ExitCriticalSection	0	static,ignoring_inline_asm
+mt_port.c:51:6:MT_PORT_SetTimerModule	0	static
+mt_port.c:59:6:MT_PORT_SetUartModule	0	static
