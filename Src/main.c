@@ -26,7 +26,7 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-#define BaudRateModBusRTU	19200
+#define BaudRateModBusRTU	9600
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
@@ -77,7 +77,7 @@ uint8_t TimerCounterTIM15 = 0;
 uint8_t FlagMogan=0; //флаг моргания светодиодом
 
 /*Настройки датчика*/
-uint8_t GlobalAdres=0; //Адрес датчика
+uint8_t GlobalAdres=1; //Адрес датчика
 uint8_t Sensitivity = 0; //чувствительность датчика
 uint8_t ModeRele = 0; //режим реле по умолчанию
 uint8_t Resistor120 = 0;
@@ -124,23 +124,20 @@ int main(void)
   MT_PORT_SetTimerModule(&htim16);
   MT_PORT_SetUartModule(&huart2);
 
-  eMBErrorCode eStatus;
+  /*eMBErrorCode eStatus;
   eStatus = eMBInit(MB_RTU, 1, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
   eStatus = eMBEnable();
 
-  GPIOA->BSRR = GPIO_BSRR_BS_0;
-  GPIOA->BSRR = GPIO_BSRR_BR_0;
   if (eStatus != MB_ENOERR)
   {
 
-  }
+  }*/
   TIM15->CR1 |= TIM_CR1_CEN;
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
   /* USER CODE END WHILE */
-
 
 	  KeyPress(); //Обработка нажатий клавиш
 
@@ -165,16 +162,16 @@ void KeyPress()
 	else
 	{
 
-		if(TimerCounterTIM15%2==0)
+		/*if(TimerCounterTIM15%2==0)
 		{
 			ADC_qqq = 33 * ADC_Read() / 4096;
 			sprintf(StringIndication, "%d", ADC_qqq);
 			indicator_sgd4(SPI1, 0x00, StringIndication, 0b011);
 			FlagMogan=0;
-		}
+		}*/
 
-		/*sprintf(StringIndication, "%d", GlobalAdres);
-		indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);*/
+		sprintf(StringIndication, "%d", GlobalAdres);
+		indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
 	}
 
 	if((LongPressKey_PB8))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ АДРЕСА
@@ -209,18 +206,21 @@ void KeyPress()
 		}
 		if(ShortPressKey_PB2)//короткое нжатие
 		{
-			if(GlobalAdres>0)
+			if(GlobalAdres>1)
 			{
 				GlobalAdres--;
 			}
 			else
 			{
-				GlobalAdres = 0;
+				GlobalAdres = 1;
 			}
 			ShortPressKey_PB2=0;
 			TimerCounterTIM15=0;
 		}
 	  }
+	  eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
+	  eMBEnable();
+
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
 	  LongPressKey_PB8=0;
 	  TimerCounterTIM14=0;

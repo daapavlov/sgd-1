@@ -121,7 +121,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == modbusUart->Instance)
   {
-	  GPIOA->BSRR |= GPIO_BSRR_BR_0;
+	GPIOA->BSRR |= GPIO_BSRR_BR_0;
     prvvUARTTxReadyISR();
 
   }

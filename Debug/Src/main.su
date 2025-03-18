@@ -1,6 +1,6 @@
 main.c:404:13:MX_SPI1_Init	8	static
 main.c:504:13:MX_GPIO_Init	40	static
-main.c:153:6:GasMeasurement	0	static
+main.c:150:6:GasMeasurement	0	static
 main.c:557:6:HAL_GPIO_EXTI_Callback	0	static
 main.c:608:6:CheckingKeyTimings	0	static
 main.c:634:14:eMBRegInputCB	8	static
@@ -8,10 +8,10 @@ main.c:664:14:eMBRegHoldingCB	12	static
 main.c:705:14:eMBRegCoilsCB	0	static
 main.c:751:14:eMBRegDiscreteCB	0	static
 main.c:776:6:IndicationSensitivity	8	static
-main.c:158:6:KeyPress	16	static
+main.c:155:6:KeyPress	16	static
 main.c:810:6:_Error_Handler	0	static
 main.c:463:13:MX_USART1_UART_Init	8	static
 main.c:484:13:MX_USART2_UART_Init	8	static
 main.c:445:13:MX_TIM16_Init	8	static
 main.c:350:6:SystemClock_Config	88	static
-main.c:92:5:main	16	static
+main.c:92:5:main	8	static
