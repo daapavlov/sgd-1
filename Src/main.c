@@ -44,6 +44,8 @@ static void MX_TIM16_Init(void);
 void CheckingKeyTimings();
 void IndicationSensitivity(uint8_t Sensitivity, uint8_t led);
 void KeyPress();
+void IWDG_Init();
+void IWDG_Reset();
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -77,7 +79,7 @@ uint8_t TimerCounterTIM15 = 0;
 uint8_t FlagMogan=0; //флаг моргания светодиодом
 
 /*Настройки датчика*/
-uint8_t GlobalAdres=1; //Адрес датчика
+uint8_t GlobalAdres=0; //Адрес датчика
 uint8_t Sensitivity = 0; //чувствительность датчика
 uint8_t ModeRele = 0; //режим реле по умолчанию
 uint8_t Resistor120 = 0;
@@ -119,19 +121,12 @@ int main(void)
   InitTIM14();
   InitTIM15();
   ADC_Init();
+  IWDG_Init();
   /* USER CODE END 2 */
   //Пересылка структур с настройками
   MT_PORT_SetTimerModule(&htim16);
   MT_PORT_SetUartModule(&huart2);
 
-  /*eMBErrorCode eStatus;
-  eStatus = eMBInit(MB_RTU, 1, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
-  eStatus = eMBEnable();
-
-  if (eStatus != MB_ENOERR)
-  {
-
-  }*/
   TIM15->CR1 |= TIM_CR1_CEN;
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -143,6 +138,7 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
 	  eMBPoll();
+	  IWDG_Reset(); //Обновление сторожевого таймера
   }
   /* USER CODE END 3 */
 
@@ -151,7 +147,20 @@ void GasMeasurement()
 {
 
 }
+void IWDG_Init()
+{
 
+	IWDG->KR = 0xCCCC;//Запуск таймера IWDG
+	IWDG->KR = 0x5555;//Разрешение доступа к таймеру
+	IWDG->PR = 0b111;//Предделитель /256
+	IWDG->RLR = 156*10;//Значение регистра перезагрузки (время сброса таймера ~1c)
+	while(IWDG->SR);//Ожидание обновления регистров
+	IWDG->KR = 0xAAAA;//Обновление значения счетчика
+}
+void IWDG_Reset()
+{
+	IWDG->KR = 0xAAAA;
+}
 void KeyPress()
 {
 	if(TimerCounterTIM14>0)
@@ -162,13 +171,12 @@ void KeyPress()
 	else
 	{
 
-		/*if(TimerCounterTIM15%2==0)
+		if(TimerCounterTIM15%2==0)
 		{
-			ADC_qqq = 33 * ADC_Read() / 4096;
-			sprintf(StringIndication, "%d", ADC_qqq);
-			indicator_sgd4(SPI1, 0x00, StringIndication, 0b011);
+			ADC_qqq = 3300 * ADC_Read() / 4096;
+			usRegAnalog[0] = ADC_qqq;
 			FlagMogan=0;
-		}*/
+		}
 
 		sprintf(StringIndication, "%d", GlobalAdres);
 		indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
@@ -527,12 +535,12 @@ static void MX_GPIO_Init(void)
 
   //TER:
   GPIOA->MODER |= 0b01<<GPIO_MODER_MODER12_Pos;//OUTPUT MODE
-  GPIOA->OTYPER |= GPIO_OTYPER_OT_12;//OPEN-DRAIN
+  GPIOA->OTYPER &= ~ GPIO_OTYPER_OT_12;//OPEN-DRAIN
   GPIOA->OSPEEDR |= 0b11<<GPIO_OSPEEDR_OSPEEDR12_Pos;//HIGH SPEED
 
   //REL:
   GPIOB->MODER |= 0b01<<GPIO_MODER_MODER12_Pos;//OUTPUT MODE
-  GPIOB->OTYPER |= GPIO_OTYPER_OT_12;//OPEN-DRAIN
+  GPIOB->OTYPER &= ~ GPIO_OTYPER_OT_12;//OPEN-DRAIN
   GPIOB->OSPEEDR |= 0b11<<GPIO_OSPEEDR_OSPEEDR12_Pos;//HIGH SPEED
 
   /*EXTI PB2 и PB8*/
