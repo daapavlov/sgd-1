@@ -7,6 +7,7 @@
  *	Дата: 26.04.23
  *************************************************************************************************/
 #include <indicator_7s_sr.h>
+
 //-------------------------------------------------------------------------------------------------
 //	ФУНКЦИЯ ИНДИКАТОР СГД-4
 //-------------------------------------------------------------------------------------------------
@@ -21,6 +22,10 @@
 //-------------------------------------------------------------------------------------------------
 void indicator_sgd4(SPI_TypeDef* spi_x, uint8_t leds, char *strn, uint8_t points)
 {
+	// Включение TIM17
+	TIM17->CR1 &= ~TIM_CR1_CEN;
+    // PB9 = 1
+    GPIOB->ODR &= ~GPIO_ODR_9;
 	// Массив сегментов индикатора
 	uint8_t digit[5];
 
@@ -50,33 +55,33 @@ void indicator_sgd4(SPI_TypeDef* spi_x, uint8_t leds, char *strn, uint8_t points
 			case'9': sym[ns] = 0b01101111; break;
 			case' ': sym[ns] = 0b00000000; break;  // Пробел.
 
-			case'A': sym[ns] = 0b01110111; break;
+/*			case'A': sym[ns] = 0b01110111; break;
 			case'b': sym[ns] = 0b01111100; break;
 			case'C': sym[ns] = 0b00111001; break;
-			case'd': sym[ns] = 0b01011110; break;
+			case'd': sym[ns] = 0b01011110; break;*/
 			case'E': sym[ns] = 0b01111001; break;
-			case'F': sym[ns] = 0b01110001; break;
-			case'G': sym[ns] = 0b00111101; break;
+/*			case'F': sym[ns] = 0b01110001; break;
+//			case'G': sym[ns] = 0b00111101; break;
 			case'H': sym[ns] = 0b01110110; break;
 			case'I': sym[ns] = 0b00110000; break;
 			case'J': sym[ns] = 0b00011110; break;
 			case'L': sym[ns] = 0b00111000; break;
 			case'O': sym[ns] = 0b00111111; break;
-			case'P': sym[ns] = 0b01110011; break;
+//			case'P': sym[ns] = 0b01110011; break;
 			case'S': sym[ns] = 0b01101101; break;
 			case'X': sym[ns] = 0b01110110; break;
 			case'U': sym[ns] = 0b00111110; break;
-			case'Y': sym[ns] = 0b01101110; break;
+			case'Y': sym[ns] = 0b01101110; break;*/
 			case'-': sym[ns] = 0b01000000; break;
 
-			case'П': sym[ns] = 0b00110111; break;
-			case'Р': sym[ns] = 0b01110011; break;
-			case'Г': sym[ns] = 0b00110001; break;
+			case'P': sym[ns] = 0b00110111; break;
+			case'R': sym[ns] = 0b01110011; break;
+			case'G': sym[ns] = 0b00110001; break;
 
-			case'Н': sym[ns] = 0b01110110; break;
-			case'В': sym[ns] = 0b01111111; break;
-			case'С': sym[ns] = 0b00111001; break;
-			case'Ч': sym[ns] = 0b01100110; break;
+			case'N': sym[ns] = 0b01110110; break;
+			case'B': sym[ns] = 0b01111111; break;
+			case'C': sym[ns] = 0b00111001; break;
+			case'H': sym[ns] = 0b01100110; break;
 
 
 			// Если символ окончания строки, запоминается количество значащих символов в строке
@@ -125,15 +130,15 @@ void indicator_sgd4(SPI_TypeDef* spi_x, uint8_t leds, char *strn, uint8_t points
 
 	// Заполнение массива сегментов индикатора
 	// Индексы соответствуют индексам позиционных обозначений на схеме
-	digit[4] = leds;
-	digit[3] = sym[0];
-	digit[2] = sym[1];
-	digit[1] = sym[2];
+	digit[1] = leds;
+	digit[4] = sym[0];
+	digit[3] = sym[1];
+	digit[2] = sym[2];
 
 	// Добавление десятичных точек в соответствующие сегменты индикатора
-	if(points & 0b100) digit[3] |= 0b10000000;
-	if(points & 0b010) digit[2] |= 0b10000000;
-	if(points & 0b001) digit[1] |= 0b10000000;
+	if(points & 0b100) digit[4] |= 0b10000000;
+	if(points & 0b010) digit[3] |= 0b10000000;
+	if(points & 0b001) digit[2] |= 0b10000000;
 
 	// Передача данных в регистры
 	for(uint8_t nn = 1; nn < 5; nn++)

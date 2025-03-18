@@ -83,6 +83,7 @@ BOOL xMBPortSerialInit(UCHAR ucPORT, ULONG ulBaudRate, UCHAR ucDataBits, eMBPari
 BOOL xMBPortSerialPutByte(CHAR ucByte)
 {
   txByte = ucByte;
+  GPIOA->BSRR = GPIO_BSRR_BS_0;
   HAL_UART_Transmit_IT(modbusUart, &txByte, 1);
   return TRUE;
 }
@@ -120,7 +121,9 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == modbusUart->Instance)
   {
+	  GPIOA->BSRR |= GPIO_BSRR_BR_0;
     prvvUARTTxReadyISR();
+
   }
 }
 
@@ -132,6 +135,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   if (huart->Instance == modbusUart->Instance)
   {
     prvvUARTRxISR();
+
   }
 }
 

@@ -47,8 +47,9 @@ extern UART_HandleTypeDef huart2;
 
 extern TIM_HandleTypeDef htim6;
 
-extern uint32_t TimerCounterTIM14;
-extern uint32_t TimerCounterTIM15;
+extern uint16_t TimerCounterTIM14;
+extern uint8_t TimerCounterTIM15;
+extern uint8_t FlagMogan;
 
 /******************************************************************************/
 /*            Cortex-M0 Processor Interruption and Exception Handlers         */ 
@@ -163,8 +164,8 @@ void TIM14_IRQHandler(void)
 	{
 		CLEAR_BIT(TIM14->SR, TIM_SR_UIF);  //Сбросим флаг прерывания
 	}
-	CallbackTIM14();
-
+//	CallbackTIM14();
+	TimerCounterTIM14++;
 
 }
 
@@ -196,7 +197,14 @@ void TIM15_IRQHandler(void)
 		CLEAR_BIT(TIM15->SR, TIM_SR_UIF);  //Сбросим флаг прерывания
 	}
 	TimerCounterTIM15++;
-	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+	if(FlagMogan == 0)
+	{
+		FlagMogan=1;
+	}
+	else
+	{
+		FlagMogan=0;
+	}
 
 }
 /**

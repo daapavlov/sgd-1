@@ -5,7 +5,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../Src/Mode_SGD-1.c \
+../Src/ADC.c \
 ../Src/TimerConf.c \
 ../Src/indicator_7s_sr.c \
 ../Src/main.c \
@@ -14,7 +14,7 @@ C_SRCS += \
 ../Src/stm32f0xx_it.c 
 
 OBJS += \
-./Src/Mode_SGD-1.o \
+./Src/ADC.o \
 ./Src/TimerConf.o \
 ./Src/indicator_7s_sr.o \
 ./Src/main.o \
@@ -23,7 +23,7 @@ OBJS += \
 ./Src/stm32f0xx_it.o 
 
 C_DEPS += \
-./Src/Mode_SGD-1.d \
+./Src/ADC.d \
 ./Src/TimerConf.d \
 ./Src/indicator_7s_sr.d \
 ./Src/main.d \
@@ -39,7 +39,7 @@ Src/%.o: ../Src/%.c Src/subdir.mk
 clean: clean-Src
 
 clean-Src:
-	-$(RM) ./Src/Mode_SGD-1.d ./Src/Mode_SGD-1.o ./Src/TimerConf.d ./Src/TimerConf.o ./Src/indicator_7s_sr.d ./Src/indicator_7s_sr.o ./Src/main.d ./Src/main.o ./Src/stm32f0xx_hal_msp.d ./Src/stm32f0xx_hal_msp.o ./Src/stm32f0xx_hal_timebase_TIM.d ./Src/stm32f0xx_hal_timebase_TIM.o ./Src/stm32f0xx_it.d ./Src/stm32f0xx_it.o
+	-$(RM) ./Src/ADC.d ./Src/ADC.o ./Src/TimerConf.d ./Src/TimerConf.o ./Src/indicator_7s_sr.d ./Src/indicator_7s_sr.o ./Src/main.d ./Src/main.o ./Src/stm32f0xx_hal_msp.d ./Src/stm32f0xx_hal_msp.o ./Src/stm32f0xx_hal_timebase_TIM.d ./Src/stm32f0xx_hal_timebase_TIM.o ./Src/stm32f0xx_it.d ./Src/stm32f0xx_it.o
 
 .PHONY: clean-Src
 

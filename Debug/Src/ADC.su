@@ -1,0 +1,3 @@
+ADC.c:2:6:ADC_Init	0	static
+ADC.c:16:6:ADC_Start	0	static
+ADC.c:24:10:ADC_Read	0	static

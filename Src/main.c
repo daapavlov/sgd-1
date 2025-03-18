@@ -9,6 +9,7 @@
 
 #include <indicator_7s_sr.h>
 #include <TimerConf.h>
+#include <ADC.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -25,7 +26,7 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-#define BaudRateModBusRTU	9600U
+#define BaudRateModBusRTU	19200
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
@@ -40,8 +41,9 @@ static void MX_TIM16_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void CallbackTIM14();
-void IndicationSensitivity(uint8_t Sensitivity);
+void CheckingKeyTimings();
+void IndicationSensitivity(uint8_t Sensitivity, uint8_t led);
+void KeyPress();
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -51,10 +53,11 @@ void IndicationSensitivity(uint8_t Sensitivity);
 #define REG_INPUT_NUMBER_REGS	100 //КОЛИЧЕСВТО РЕГИСТРОВ
 
 static USHORT usRegAdressInputStart = REG_ADRESS_INPUT_START;
-static USHORT usRegAnalog[REG_INPUT_NUMBER_REGS]={0}; //Регистры аналоговых чисел
+static USHORT usRegAnalog[REG_INPUT_NUMBER_REGS]={1, 1, 1}; //Регистры аналоговых чисел
 
 uint8_t FlagAnalogMessageFromMaster=0; //Флаг, который выставляется, когда приходит изменение в регистр от мастера
 
+uint16_t EXTI_PRreg;
 
 /*Для кнопок управления*/
 uint8_t ClickFlag_PB8 = 0;
@@ -66,48 +69,44 @@ uint8_t ShortPressKey_PB2=0;
 uint8_t LongPressKey_PB2=0;//3 сек нажатие
 
 uint8_t LongDoublePressKey_PB2_PB8=0;//3 сек нажатие
+uint8_t LongLongDoublePressKey_PB2_PB8=0;//9 сек нажатие
+
 /*Для таймеров*/
-uint32_t TimerCounterTIM14 = 0;
-uint32_t TimerCounterTIM15 = 0;
+uint16_t TimerCounterTIM14 = 0;
+uint8_t TimerCounterTIM15 = 0;
+uint8_t FlagMogan=0; //флаг моргания светодиодом
+
 /*Настройки датчика*/
 uint8_t GlobalAdres=0; //Адрес датчика
-char GlobalAdres_str[] = "000";
 uint8_t Sensitivity = 0; //чувствительность датчика
-uint8_t ModeRele = 0b000; //режим реле по умолчанию
-char ModeRele_str[] = "000";
+uint8_t ModeRele = 0; //режим реле по умолчанию
+uint8_t Resistor120 = 0;
+
+char StringIndication[] = "   ";
+
+
+
+uint16_t ADC_qqq = 0;
 /* USER CODE END 0 */
 
 int main(void)
 {
-
+//	xMBPortSerialPutByte
   /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
-
   /* MCU Configuration----------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  //Пересылка структур с настройками
-  /*MT_PORT_SetTimerModule(&htim16);
-  MT_PORT_SetUartModule(&huart2);
 
-  eMBErrorCode eStatus;
-  eStatus = eMBInit(MB_RTU, 0x0A, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
-  eStatus = eMBEnable();
-
-  if (eStatus != MB_ENOERR)
-  {
-    // Error handling
-  }*/
   /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -116,136 +115,34 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_TIM16_Init();
-
-
-
   /* USER CODE BEGIN 2 */
   InitTIM14();
   InitTIM15();
+  ADC_Init();
   /* USER CODE END 2 */
+  //Пересылка структур с настройками
+  MT_PORT_SetTimerModule(&htim16);
+  MT_PORT_SetUartModule(&huart2);
 
+  eMBErrorCode eStatus;
+  eStatus = eMBInit(MB_RTU, 1, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
+  eStatus = eMBEnable();
+
+  GPIOA->BSRR = GPIO_BSRR_BS_0;
+  GPIOA->BSRR = GPIO_BSRR_BR_0;
+  if (eStatus != MB_ENOERR)
+  {
+
+  }
+  TIM15->CR1 |= TIM_CR1_CEN;
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
   /* USER CODE END WHILE */
-	  if((LongPressKey_PB8))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ АДРЕСА
-	  {
-		  TimerCounterTIM15=0;
-//		  indicator_sgd4(SPI1, 0x00, "ПРГ", 0x00);//Процесс индикации режима настройки
-		  HAL_Delay(1000);
-//		  indicator_sgd4(SPI1, 0x00, GlobalAdress_str, 0x00);//Индикация текущего адреса
-		  TIM15->CR1 |= TIM_CR1_CEN;
-
-		  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
-		  {
-			if(ShortPressKey_PB8)//короткое нжатие
-			{
-				if(GlobalAdres<99)
-				{
-					GlobalAdres++;
-				}
-				else
-				{
-					GlobalAdres = 99;
-				}
-
-				sprintf(GlobalAdres_str, "%d", GlobalAdres);
-//		  indicator_sgd4(SPI1, 0x00, GlobalAdress_str, 0x00);//Индикация текущего адреса
-				TimerCounterTIM15=0;
-				ShortPressKey_PB8=0;
-			}
-			if(ShortPressKey_PB2)//короткое нжатие
-			{
-				if(GlobalAdres>0)
-				{
-					GlobalAdres--;
-				}
-				else
-				{
-					GlobalAdres = 0;
-				}
-				sprintf(GlobalAdres_str, "%d", GlobalAdres);
-//		  indicator_sgd4(SPI1, 0x00, GlobalAdress_str, 0x00);//Индикация текущего адреса
-				TimerCounterTIM15=0;
-				ShortPressKey_PB2=0;
-			}
-		  }
-		  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
-		  GPIOC->BSRR &= ~GPIO_BSRR_BR_13;
-		  LongPressKey_PB8=0;
-//		  eStatus = eMBInit(MB_RTU, GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
 
 
-	  }
-	  if((LongPressKey_PB2))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ ЧУВСТВИТЕЛЬНОСТИ
-	  {
-		  TimerCounterTIM15=0;
-//		  indicator_sgd4(SPI1, 0x00, "ПРГ", 0x00);//Процесс индикации режима настройки
-		  HAL_Delay(1000);
-//		  IndicationSensitivity(Sensitivity);//Показывает настройку чувствительности
-		  TIM15->CR1 |= TIM_CR1_CEN;
-		  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
-		  {
-			  if(ShortPressKey_PB8)//короткое нжатие
-			  {
-				if(Sensitivity>=3)
-				{
-					Sensitivity = 0;
-				}
-				else
-				{
-					Sensitivity++;
-				}
-//				IndicationSensitivity(Sensitivity);
-				TimerCounterTIM15=0;
-				ShortPressKey_PB8=0;
-			  }
-			  if(ShortPressKey_PB2)//короткое нжатие
-			  {
-				if(Sensitivity<=0)
-				{
-					Sensitivity = 3;
-				}
-				else
-				{
-					Sensitivity--;
-				}
-//				IndicationSensitivity(Sensitivity);
-				TimerCounterTIM15=0;
-				ShortPressKey_PB2=0;
-			  }
-		  }
-		  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
-		  GPIOC->BSRR &= ~GPIO_BSRR_BR_13;
-		  LongPressKey_PB2=0;
-	  }
-
-	  if(LongDoublePressKey_PB2_PB8) //сработали обе кнопки в длинную ЭТО ДЛЯ НАСТРОЙКИ ЗАЛИПАНИЯ
-	  {
-		  TimerCounterTIM15=0;
-//		  indicator_sgd4(SPI1, 0x00, "ПРГ", 0x00);//Процесс индикации режима настройки
-		  HAL_Delay(1000);
-		  sprintf(ModeRele_str, "%d", ModeRele);
-//		  indicator_sgd4(SPI1, 0x00, GlobalAdress_str, 0x00);//Индикация текущего адреса
-		  TIM15->CR1 |= TIM_CR1_CEN;
-		  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
-		  {
-			  if(ShortPressKey_PB8)//короткое нжатие
-			  {
-				  ModeRele = 0b111;
-				  sprintf(ModeRele_str, "%d", ModeRele);
-			  }
-			  if(ShortPressKey_PB2)//короткое нжатие
-			  {
-				  ModeRele = 0b000;
-				  sprintf(ModeRele_str, "%d", ModeRele);
-			  }
-		  }
-		  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
-		  GPIOC->BSRR &= ~GPIO_BSRR_BR_13;
-		  LongDoublePressKey_PB2_PB8=0;
-	  }
+	  KeyPress(); //Обработка нажатий клавиш
 
   /* USER CODE BEGIN 3 */
 	  eMBPoll();
@@ -253,7 +150,201 @@ int main(void)
   /* USER CODE END 3 */
 
 }
+void GasMeasurement()
+{
 
+}
+
+void KeyPress()
+{
+	if(TimerCounterTIM14>0)
+	{
+		CheckingKeyTimings();
+
+	}
+	else
+	{
+
+		if(TimerCounterTIM15%2==0)
+		{
+			ADC_qqq = 33 * ADC_Read() / 4096;
+			sprintf(StringIndication, "%d", ADC_qqq);
+			indicator_sgd4(SPI1, 0x00, StringIndication, 0b011);
+			FlagMogan=0;
+		}
+
+		/*sprintf(StringIndication, "%d", GlobalAdres);
+		indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);*/
+	}
+
+	if((LongPressKey_PB8))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ АДРЕСА
+	{
+	  TimerCounterTIM15=0;
+	  indicator_sgd4(SPI1, 0x00, "PRG", 0b010);//Процесс индикации режима настройки
+	  HAL_Delay(1000);
+	  TIM15->CR1 |= TIM_CR1_CEN;
+	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
+	  {
+		sprintf(StringIndication, "%d", GlobalAdres);
+		if(FlagMogan == 0)
+		{
+			indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
+		}
+		else
+		{
+			indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);
+		}
+		if(ShortPressKey_PB8)//короткое нжатие
+		{
+			if(GlobalAdres<99)
+			{
+				GlobalAdres++;
+			}
+			else
+			{
+				GlobalAdres = 99;
+			}
+			ShortPressKey_PB8=0;
+			TimerCounterTIM15=0;
+		}
+		if(ShortPressKey_PB2)//короткое нжатие
+		{
+			if(GlobalAdres>0)
+			{
+				GlobalAdres--;
+			}
+			else
+			{
+				GlobalAdres = 0;
+			}
+			ShortPressKey_PB2=0;
+			TimerCounterTIM15=0;
+		}
+	  }
+	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
+	  LongPressKey_PB8=0;
+	  TimerCounterTIM14=0;
+	}
+	if((LongPressKey_PB2))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ ЧУВСТВИТЕЛЬНОСТИ
+	{
+	  TimerCounterTIM15=0;
+	  indicator_sgd4(SPI1, 0x00, "PRG", 0b010);//Процесс индикации режима настройки
+	  HAL_Delay(1000);
+	  TIM15->CR1 |= TIM_CR1_CEN;
+	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
+	  {
+		  if(FlagMogan == 0)
+		  {
+			  IndicationSensitivity(Sensitivity, 0b010);
+		  }
+		  else
+		  {
+			  IndicationSensitivity(Sensitivity, 0b000);
+		  }
+		  if(ShortPressKey_PB8)//короткое нжатие
+		  {
+			if(Sensitivity<3)
+			{
+				Sensitivity++;
+			}
+			else
+			{
+				Sensitivity = 3;
+			}
+			TimerCounterTIM15=0;
+			ShortPressKey_PB8=0;
+		  }
+		  if(ShortPressKey_PB2)//короткое нжатие
+		  {
+			if(Sensitivity>0)
+			{
+				Sensitivity--;
+			}
+			else
+			{
+				Sensitivity = 0;
+			}
+			TimerCounterTIM15=0;
+			ShortPressKey_PB2=0;
+		  }
+	  }
+	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
+	  LongPressKey_PB2=0;
+	  TimerCounterTIM14=0;
+	}
+
+	if(LongDoublePressKey_PB2_PB8) //сработали обе кнопки в длинную ЭТО ДЛЯ НАСТРОЙКИ ЗАЛИПАНИЯ
+	{
+	  TimerCounterTIM15=0;
+	  indicator_sgd4(SPI1, 0x00, "PRG", 0b010);//Процесс индикации режима настройки
+	  HAL_Delay(1000);
+	  TIM15->CR1 |= TIM_CR1_CEN;
+	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
+	  {
+		  sprintf(StringIndication, "%d",  ModeRele);
+		  if(FlagMogan == 0)
+		  {
+			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);//Индикация текущей настройки релеЁ
+		  }
+		  else
+		  {
+			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);//Индикация текущей настройки релеЁ
+		  }
+
+		  if(ShortPressKey_PB8)//короткое нжатие
+		  {
+			  ModeRele = 111;
+			  ShortPressKey_PB8=0;
+			  TimerCounterTIM15=0;
+		  }
+		  if(ShortPressKey_PB2)//короткое нжатие
+		  {
+			  ModeRele = 000;
+			  ShortPressKey_PB2=0;
+			  TimerCounterTIM15=0;
+		  }
+	  }
+	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
+	  LongDoublePressKey_PB2_PB8=0;
+	  TimerCounterTIM14=0;
+	}
+	if(LongLongDoublePressKey_PB2_PB8)
+	{
+	  TimerCounterTIM15=0;
+	  indicator_sgd4(SPI1, 0x00, "RE3", 0b010);//Процесс индикации режима настройки
+	  HAL_Delay(1000);
+	  TIM15->CR1 |= TIM_CR1_CEN;
+	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
+	  {
+		  sprintf(StringIndication, "%d",  Resistor120);
+		  if(FlagMogan == 0)
+		  {
+			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);//Индикация текущей настройки релеЁ
+		  }
+		  else
+		  {
+			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);//Индикация текущей настройки релеЁ
+		  }
+		  if(ShortPressKey_PB8)//короткое нжатие
+		  {
+			  Resistor120 = 120;
+			  GPIOA->BSRR |= GPIO_BSRR_BS_12;
+			  ShortPressKey_PB8=0;
+			  TimerCounterTIM15=0;
+		  }
+		  if(ShortPressKey_PB2)//короткое нжатие
+		  {
+			  Resistor120 = 0;
+			  GPIOA->BSRR |= GPIO_BSRR_BR_12;
+			  ShortPressKey_PB2=0;
+			  TimerCounterTIM15=0;
+		  }
+	  }
+	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
+	  LongLongDoublePressKey_PB2_PB8=0;
+	  TimerCounterTIM14=0;
+	}
+}
 /** System Clock Configuration
 */
 void SystemClock_Config(void)
@@ -312,26 +403,42 @@ void SystemClock_Config(void)
 /* SPI1 init function */
 static void MX_SPI1_Init(void)
 {
+	 // Включение тактирования PORTA
+	    RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	    // Включение тактирования PORTB
+	    RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+	    // PA5 (SCK), PA7 (MOSI) - альтернативная функция
+	    GPIOA->MODER |= GPIO_MODER_MODER5_1 | GPIO_MODER_MODER7_1;
+	    GPIOB->MODER |= GPIO_MODER_MODER9_0;
 
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_1LINE;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 7;
-  hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
+	    // PA5, PA7 - двухтактные выходы
+	    GPIOA->OTYPER &= ~(GPIO_OTYPER_OT_5 | GPIO_OTYPER_OT_7);
+	    // PB9 - двухтактный выход
+	    GPIOB->OTYPER &= ~GPIO_OTYPER_OT_9;
+	    // PA5, PA7 - высокая скорость
+	    GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR5 | GPIO_OSPEEDER_OSPEEDR7;
+	    // PB9 - высокая скорость
+	    GPIOB->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR9;
+	    // PA5, PA7 - альтернативная функция AF0
+	    GPIOA->AFR[0] &= ~(0xF0000 | 0xF0000000);
+	    // Включение тактирования SPI1
+	    RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
+	    // Скорость передачи: fPCLK/64  f
+	    SPI1->CR1 |= SPI_CR1_BR_2 | SPI_CR1_BR_1 | SPI_CR1_BR_0;
+	    // Однопроводный режим, мастер использует только вывод MOSI
+	    SPI1->CR1 |= SPI_CR1_BIDIMODE;
+	    // Данные только передаются в однопроводном режиме
+	    SPI1->CR1 |= SPI_CR1_BIDIOE;
+	    // Работа в режиме ведущего
+	    SPI1->CR1 |= SPI_CR1_MSTR;
+	    //
+	    SPI1->CR1 |= SPI_CR1_SSM;
+	    SPI1->CR1 |= SPI_CR1_SSI;
+	    // 8-битный формат
+	    SPI1->CR2 &= ~SPI_CR2_DS;
+	    SPI1->CR2 |= SPI_CR2_DS_2 | SPI_CR2_DS_1 | SPI_CR2_DS_0;
+	    // Включение SPI2
+	    SPI1->CR1 |= SPI_CR1_SPE;
 }
 
 /* TIM17 init function */
@@ -404,16 +511,19 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
   //DE-RE:
-  GPIOA->MODER |= 0b01<<GPIO_MODER_MODER0;//OUTPUT MODE
+  /*GPIOA->MODER |= 0b01<<GPIO_MODER_MODER0;//OUTPUT MODE
   GPIOA->OTYPER |= 0b01<<GPIO_OTYPER_OT_0;//OPEN-DRAIN
-  GPIOA->OSPEEDR |= 0b11<<GPIO_OSPEEDR_OSPEEDR0_Pos;//HIGH SPEED
+  GPIOA->OSPEEDR |= 0b11<<GPIO_OSPEEDR_OSPEEDR0_Pos;//HIGH SPEED*/
+
+  GPIOA->MODER |= GPIO_MODER_MODER0_0;
+  GPIOA->OTYPER &= ~ GPIO_OTYPER_OT_0;
+  GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR0;
 
   //LED G:
-  GPIOC->MODER = 10;
-  GPIOC->MODER |= 0b01<<GPIO_MODER_MODER13_Pos; //OUTPUT MODE
-  GPIOC->OTYPER &= ~GPIO_OTYPER_OT_13;//PUSH-PULL
-  GPIOC->OSPEEDR |= 0b11<<GPIO_OSPEEDR_OSPEEDR13_Pos;//HIGH SPEED
-  GPIOC->PUPDR |= 0b10<<GPIO_PUPDR_PUPDR13_Pos; //PULL DOWN
+  GPIOB->MODER |= 0b01<<GPIO_MODER_MODER10_Pos; //OUTPUT MODE
+  GPIOB->OTYPER &= ~GPIO_OTYPER_OT_10;//PUSH-PULL
+  GPIOB->OSPEEDR |= 0b11<<GPIO_OSPEEDR_OSPEEDR10_Pos;//HIGH SPEED
+  GPIOB->PUPDR |= 0b10<<GPIO_PUPDR_PUPDR10_Pos; //PULL DOWN
 
   //TER:
   GPIOA->MODER |= 0b01<<GPIO_MODER_MODER12_Pos;//OUTPUT MODE
@@ -446,74 +556,78 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) //Обработчик прерываний EXTI
 {
-	if((EXTI->PR & EXTI_PR_PR2) > 0)
+	EXTI_PRreg = EXTI->PR;
+	EXTI->PR |= 1;
+	if((EXTI_PRreg & EXTI_PR_PR2)>0)
 	{
-		EXTI->PR |= EXTI_PR_PR2;
+		EXTI_PRreg &= ~EXTI_PR_PR2;
 		if(!ClickFlag_PB2)
 		{
-			ClickFlag_PB2=1;
 			TimerCounterTIM14=0;
-			TIM14->CR1 |= TIM_CR1_CEN;//Включение таймер
+			ClickFlag_PB2=1;
 		}
-		else if(ClickFlag_PB2)
+		else
 		{
 			if(TimerCounterTIM14<3000)
 			{
 				//КОРОТКОЕ НАЖАТИЕ
 				ShortPressKey_PB2=1;
 			}
-			TimerCounterTIM14=0;
 			ClickFlag_PB2=0;
-			TIM14->CR1 &= ~TIM_CR1_CEN;//Выключение таймера
 		}
 	}
 
-	if((EXTI->PR & EXTI_PR_PR8) > 0)
+	if((EXTI_PRreg & EXTI_PR_PR8)>0)
 	{
-		EXTI->PR |= EXTI_PR_PR8;
+		EXTI_PRreg &= ~EXTI_PR_PR8;
 		if(!ClickFlag_PB8)
 		{
-			ClickFlag_PB8=1;
 			TimerCounterTIM14=0;
-			TIM14->CR1 |= TIM_CR1_CEN;//Включение таймер
+			ClickFlag_PB8=1;
 		}
-		else if(ClickFlag_PB8)
+		else
 		{
 			if(TimerCounterTIM14<3000)
 			{
 				//КОРОТКОЕ НАЖАТИЕ
 				ShortPressKey_PB8=1;
-
 			}
-			TimerCounterTIM14=0;
 			ClickFlag_PB8=0;
-			TIM14->CR1 &= ~TIM_CR1_CEN;//Выключение счетчика
 		}
 	}
 
-}
-void CallbackTIM14()
-{
-	TimerCounterTIM14++;
-	if(TimerCounterTIM14>=3000 && ClickFlag_PB8==1 && ClickFlag_PB2==0)
+	if(ClickFlag_PB2 || ClickFlag_PB8)
 	{
-		//ДЛИННОЕ НАЖАТИ
+		TIM14->CR1 |= TIM_CR1_CEN;//Включение таймер
+	}
+	else
+	{
+		TIM14->CR1 &= ~TIM_CR1_CEN;//Включение таймер
+	}
+}
+void CheckingKeyTimings()
+{
+	if(TimerCounterTIM14==3000 && ClickFlag_PB8==1 && ClickFlag_PB2==0)
+	{
+		//ДЛИННОЕ НАЖАТИЕ
 		LongPressKey_PB8=1;
 		TimerCounterTIM14=0;
-		TIM14->CR1 &= ~TIM_CR1_CEN;//Выключение счетчика
 	}
-	else if(TimerCounterTIM14>=3000 && ClickFlag_PB2==1 && ClickFlag_PB8==0)
+	else if(TimerCounterTIM14==3000 && ClickFlag_PB2==1 && ClickFlag_PB8==0)
 	{
-		//ДЛИННОЕ НАЖАТИ
+		//ДЛИННОЕ НАЖАТИЕ
 		LongPressKey_PB2=1;
 		TimerCounterTIM14=0;
-		TIM14->CR1 &= ~TIM_CR1_CEN;//Выключение счетчика
 	}
-	else if(TimerCounterTIM14>=3000 && ClickFlag_PB8==1 && ClickFlag_PB2==1)
+	else if(TimerCounterTIM14>=3000 && TimerCounterTIM14<=9000 && ClickFlag_PB8==0 && ClickFlag_PB2==0)
 	{
 		LongDoublePressKey_PB2_PB8=1;
 		TimerCounterTIM14=0;
-		TIM14->CR1 &= ~TIM_CR1_CEN;//Выключение счетчика
+	}
+	else if(TimerCounterTIM14>=9000 && ClickFlag_PB8==0 && ClickFlag_PB2==0)
+	{
+		LongLongDoublePressKey_PB2_PB8=1;
+		TimerCounterTIM14=0;
 	}
 }
 
@@ -659,39 +773,39 @@ eMBErrorCode eMBRegDiscreteCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 }
 
 
-void IndicationSensitivity(uint8_t Sensitivity)
+void IndicationSensitivity(uint8_t Sensitivity, uint8_t led)
 {
 	switch (Sensitivity)
 	{
 
 	case	0:
 	{
-		indicator_sgd4(SPI1, 0x00, " НЧ", 0x00);
+		indicator_sgd4(SPI1, 0x00, " NH", led);
 	}break;
 	case	1:
 	{
-		indicator_sgd4(SPI1, 0x00, " СЧ", 0x00);
+		indicator_sgd4(SPI1, 0x00, " CH", led);
 	}break;
 	case	2:
 	{
-		indicator_sgd4(SPI1, 0x00, " ВЧ", 0x00);
+		indicator_sgd4(SPI1, 0x00, " BH", led);
 	}break;
 	}
 }
 /* USER CODE END 4 */
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-/* USER CODE BEGIN Callback 0 */
-
-/* USER CODE END Callback 0 */
-  if (htim->Instance == TIM6) {
-    HAL_IncTick();
-  }
-/* USER CODE BEGIN Callback 1 */
-
-/* USER CODE END Callback 1 */
-}
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+///* USER CODE BEGIN Callback 0 */
+//
+///* USER CODE END Callback 0 */
+//  if (htim->Instance == TIM6) {
+//    HAL_IncTick();
+//  }
+///* USER CODE BEGIN Callback 1 */
+//
+///* USER CODE END Callback 1 */
+//}
 
 void _Error_Handler(char * file, int line)
 {

@@ -1,8 +1,8 @@
-portserial.c:103:13:prvvUARTTxReadyISR	8	static
-portserial.c:111:13:prvvUARTRxISR	8	static
+portserial.c:104:13:prvvUARTTxReadyISR	8	static
+portserial.c:112:13:prvvUARTRxISR	8	static
 portserial.c:48:6:vMBPortSerialEnable	8	static
 portserial.c:75:6:xMBPortSerialInit	0	static
 portserial.c:83:6:xMBPortSerialPutByte	8	static
-portserial.c:93:6:xMBPortSerialGetByte	8	static
-portserial.c:119:6:HAL_UART_TxCpltCallback	8	static
-portserial.c:130:6:HAL_UART_RxCpltCallback	8	static
+portserial.c:94:6:xMBPortSerialGetByte	8	static
+portserial.c:120:6:HAL_UART_TxCpltCallback	8	static
+portserial.c:133:6:HAL_UART_RxCpltCallback	8	static

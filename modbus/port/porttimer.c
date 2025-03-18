@@ -81,7 +81,7 @@ static void prvvTIMERExpiredISR(void)
 
 
 /* --------------------------------------------------------------------------*/
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == modbusTimer->Instance)
   {
@@ -91,6 +91,9 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
     {
       prvvTIMERExpiredISR();
     }
+  }
+  if (htim->Instance == TIM6) {
+    HAL_IncTick();
   }
 }
 

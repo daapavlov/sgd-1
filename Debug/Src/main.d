@@ -31,7 +31,8 @@ Src/main.o: ../Src/main.c ../Inc/main.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart_ex.h \
  ../modbus/include/mb.h ../modbus/port/port.h ../modbus/include/mbport.h \
  ../modbus/include/mbproto.h ../modbus/include/mbport.h \
- ../modbus/port/mt_port.h ../Inc/indicator_7s_sr.h ../Inc/TimerConf.h
+ ../modbus/port/mt_port.h ../Inc/indicator_7s_sr.h ../Inc/TimerConf.h \
+ ../Inc/ADC.h
 
 ../Inc/main.h:
 
@@ -112,3 +113,5 @@ Src/main.o: ../Src/main.c ../Inc/main.h \
 ../Inc/indicator_7s_sr.h:
 
 ../Inc/TimerConf.h:
+
+../Inc/ADC.h:

@@ -1,4 +1,4 @@
-Src/Mode_SGD-1.o: ../Src/Mode_SGD-1.c ../Inc/Mode_SGD-1.h \
+Src/ADC.o: ../Src/ADC.c ../Inc/ADC.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal.h \
  ../Inc/stm32f0xx_hal_conf.h ../Inc/main.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_rcc.h \
@@ -28,10 +28,9 @@ Src/Mode_SGD-1.o: ../Src/Mode_SGD-1.c ../Inc/Mode_SGD-1.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_tim.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_tim_ex.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart.h \
- ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart_ex.h \
- ../Inc/indicator_7s_sr.h
+ ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart_ex.h
 
-../Inc/Mode_SGD-1.h:
+../Inc/ADC.h:
 
 ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal.h:
 
@@ -94,5 +93,3 @@ Src/Mode_SGD-1.o: ../Src/Mode_SGD-1.c ../Inc/Mode_SGD-1.h \
 ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart.h:
 
 ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart_ex.h:
-
-../Inc/indicator_7s_sr.h:

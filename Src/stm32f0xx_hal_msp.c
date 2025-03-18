@@ -72,81 +72,81 @@ void HAL_MspInit(void)
   /* USER CODE END MspInit 1 */
 }
 
-void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
-{
-
-  GPIO_InitTypeDef GPIO_InitStruct;
-  if(hspi->Instance==SPI1)
-  {
-  /* USER CODE BEGIN SPI1_MspInit 0 */
-
-  /* USER CODE END SPI1_MspInit 0 */
-    /* Peripheral clock enable */
-    __HAL_RCC_SPI1_CLK_ENABLE();
-  
-    /**SPI1 GPIO Configuration    
-    PA5     ------> SPI1_SCK
-    PA7     ------> SPI1_MOSI 
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_7;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF0_SPI1;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    /* SPI1 interrupt Init */
-    HAL_NVIC_SetPriority(SPI1_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(SPI1_IRQn);
-  /* USER CODE BEGIN SPI1_MspInit 1 */
-
-  /* USER CODE END SPI1_MspInit 1 */
-  }
-
-}
-
-void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
-{
-
-  if(hspi->Instance==SPI1)
-  {
-  /* USER CODE BEGIN SPI1_MspDeInit 0 */
-
-  /* USER CODE END SPI1_MspDeInit 0 */
-    /* Peripheral clock disable */
-    __HAL_RCC_SPI1_CLK_DISABLE();
-  
-    /**SPI1 GPIO Configuration    
-    PA5     ------> SPI1_SCK
-    PA7     ------> SPI1_MOSI 
-    */
-    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_5|GPIO_PIN_7);
-
-    /* SPI1 interrupt DeInit */
-    HAL_NVIC_DisableIRQ(SPI1_IRQn);
-  /* USER CODE BEGIN SPI1_MspDeInit 1 */
-
-  /* USER CODE END SPI1_MspDeInit 1 */
-  }
-
-}
+//void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
+//{
+//
+//  GPIO_InitTypeDef GPIO_InitStruct;
+//  if(hspi->Instance==SPI1)
+//  {
+//  /* USER CODE BEGIN SPI1_MspInit 0 */
+//
+//  /* USER CODE END SPI1_MspInit 0 */
+//    /* Peripheral clock enable */
+//    __HAL_RCC_SPI1_CLK_ENABLE();
+//
+//    /**SPI1 GPIO Configuration
+//    PA5     ------> SPI1_SCK
+//    PA7     ------> SPI1_MOSI
+//    */
+//    GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_7;
+//    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+//    GPIO_InitStruct.Pull = GPIO_NOPULL;
+//    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+//    GPIO_InitStruct.Alternate = GPIO_AF0_SPI1;
+//    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//
+//    /* SPI1 interrupt Init */
+//    HAL_NVIC_SetPriority(SPI1_IRQn, 0, 0);
+//    HAL_NVIC_EnableIRQ(SPI1_IRQn);
+//  /* USER CODE BEGIN SPI1_MspInit 1 */
+//
+//  /* USER CODE END SPI1_MspInit 1 */
+//  }
+//
+//}
+//
+//void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
+//{
+//
+//  if(hspi->Instance==SPI1)
+//  {
+//  /* USER CODE BEGIN SPI1_MspDeInit 0 */
+//
+//  /* USER CODE END SPI1_MspDeInit 0 */
+//    /* Peripheral clock disable */
+//    __HAL_RCC_SPI1_CLK_DISABLE();
+//
+//    /**SPI1 GPIO Configuration
+//    PA5     ------> SPI1_SCK
+//    PA7     ------> SPI1_MOSI
+//    */
+//    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_5|GPIO_PIN_7);
+//
+//    /* SPI1 interrupt DeInit */
+//    HAL_NVIC_DisableIRQ(SPI1_IRQn);
+//  /* USER CODE BEGIN SPI1_MspDeInit 1 */
+//
+//  /* USER CODE END SPI1_MspDeInit 1 */
+//  }
+//
+//}
 
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 {
 
-  if(htim_base->Instance==TIM17)
+  if(htim_base->Instance==TIM16)
   {
-  /* USER CODE BEGIN TIM17_MspInit 0 */
+  /* USER CODE BEGIN TIM16_MspInit 0 */
 
-  /* USER CODE END TIM17_MspInit 0 */
+  /* USER CODE END TIM16_MspInit 0 */
     /* Peripheral clock enable */
-    __HAL_RCC_TIM17_CLK_ENABLE();
+    __HAL_RCC_TIM16_CLK_ENABLE();
     /* TIM17 interrupt Init */
-    HAL_NVIC_SetPriority(TIM17_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(TIM17_IRQn);
-  /* USER CODE BEGIN TIM17_MspInit 1 */
+    HAL_NVIC_SetPriority(TIM16_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(TIM16_IRQn);
+  /* USER CODE BEGIN TIM16_MspInit 1 */
 
-  /* USER CODE END TIM17_MspInit 1 */
+  /* USER CODE END TIM16_MspInit 1 */
   }
 
 }
@@ -154,19 +154,19 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
 {
 
-  if(htim_base->Instance==TIM17)
+  if(htim_base->Instance==TIM16)
   {
   /* USER CODE BEGIN TIM17_MspDeInit 0 */
 
-  /* USER CODE END TIM17_MspDeInit 0 */
+  /* USER CODE END TIM16_MspDeInit 0 */
     /* Peripheral clock disable */
-    __HAL_RCC_TIM17_CLK_DISABLE();
+    __HAL_RCC_TIM16_CLK_DISABLE();
 
     /* TIM17 interrupt DeInit */
-    HAL_NVIC_DisableIRQ(TIM17_IRQn);
+    HAL_NVIC_DisableIRQ(TIM16_IRQn);
   /* USER CODE BEGIN TIM17_MspDeInit 1 */
 
-  /* USER CODE END TIM17_MspDeInit 1 */
+  /* USER CODE END TIM16_MspDeInit 1 */
   }
 
 }
