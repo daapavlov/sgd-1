@@ -18,6 +18,7 @@
 "./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_uart.o"
 "./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_uart_ex.o"
 "./Src/ADC.o"
+"./Src/FlashMemory.o"
 "./Src/TimerConf.o"
 "./Src/indicator_7s_sr.o"
 "./Src/main.o"

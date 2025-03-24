@@ -10,6 +10,7 @@
 #include <indicator_7s_sr.h>
 #include <TimerConf.h>
 #include <ADC.h>
+#include <FlashMemory.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -46,16 +47,22 @@ void IndicationSensitivity(uint8_t Sensitivity, uint8_t led);
 void KeyPress();
 void IWDG_Init();
 void IWDG_Reset();
+void Setting_Init();
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
 
 /*Для modBus RTU*/
-#define REG_ADRESS_INPUT_START	1 //НАЧАЛЬНЫЙ АДРЕСС РЕГИСТРОВ
-#define REG_INPUT_NUMBER_REGS	100 //КОЛИЧЕСВТО РЕГИСТРОВ
+#define REG_ADRESS_INPUT_START	99 //НАЧАЛЬНЫЙ АДРЕСС РЕГИСТРОВ
+#define REG_INPUT_NUMBER_REGS	12 //КОЛИЧЕСВТО РЕГИСТРОВ
 
 static USHORT usRegAdressInputStart = REG_ADRESS_INPUT_START;
 static USHORT usRegAnalog[REG_INPUT_NUMBER_REGS]={1, 1, 1}; //Регистры аналоговых чисел
+															//[0] - 98 адрес
+															//[1] - 99 адрес
+															//[2] - 100 адрес
+															//[6] - 104 адрес
+															//[9] - 107 адрес
 
 uint8_t FlagAnalogMessageFromMaster=0; //Флаг, который выставляется, когда приходит изменение в регистр от мастера
 
@@ -79,16 +86,20 @@ uint8_t TimerCounterTIM15 = 0;
 uint8_t FlagMogan=0; //флаг моргания светодиодом
 
 /*Настройки датчика*/
-uint8_t GlobalAdres=0; //Адрес датчика
+uint8_t GlobalAdres=1; //Адрес датчика
+uint8_t GlobalAdresFlesh=1;
 uint8_t Sensitivity = 0; //чувствительность датчика
 uint8_t ModeRele = 0; //режим реле по умолчанию
 uint8_t Resistor120 = 0;
+uint8_t FlagChangeSetting=0;
+uint8_t DataSettingMemory[4] = {1};
 
 char StringIndication[] = "   ";
 
-
-
 uint16_t ADC_qqq = 0;
+
+//uint8_t Dataa[12] = {0x03, 0x45, 0x33, 0x22, 0x57, 0xAC, 0x03, 0x45, 0x33, 0x22, 0x57, 0xAC};
+//uint8_t DataaR[12];
 /* USER CODE END 0 */
 
 int main(void)
@@ -121,27 +132,50 @@ int main(void)
   InitTIM14();
   InitTIM15();
   ADC_Init();
-  IWDG_Init();
+//  IWDG_Init();
+  Setting_Init();
   /* USER CODE END 2 */
   //Пересылка структур с настройками
   MT_PORT_SetTimerModule(&htim16);
   MT_PORT_SetUartModule(&huart2);
 
-  TIM15->CR1 |= TIM_CR1_CEN;
+//  WriteToFleshMemory(0xFC00, Dataa, 12);
+
+//  ReadToFleshMemory(0xFC00, DataaR, 12);
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
   /* USER CODE END WHILE */
+	  if(FlagChangeSetting)
+	  {
+		  DataSettingMemory[0] = GlobalAdres;
+		  DataSettingMemory[1] = Sensitivity;
+		  DataSettingMemory[2] = ModeRele;
+		  DataSettingMemory[3] = Resistor120;
+
+		  WriteToFleshMemory(0xFC00, DataSettingMemory, 4);
+		  FlagChangeSetting=0;
+	  }
 
 	  KeyPress(); //Обработка нажатий клавиш
-
-  /* USER CODE BEGIN 3 */
+	  ADC_qqq = 330 * ADC_Read() / 4096;
+	  usRegAnalog[0] = ADC_qqq;
+	  FlagMogan=0;
 	  eMBPoll();
 	  IWDG_Reset(); //Обновление сторожевого таймера
   }
-  /* USER CODE END 3 */
 
+}
+void Setting_Init()
+{
+	  ReadToFleshMemory(0xFC00, DataSettingMemory, 4);
+
+	  GlobalAdres = DataSettingMemory[0];
+	  Sensitivity = DataSettingMemory[1];
+	  ModeRele = DataSettingMemory[2];
+	  Resistor120 = DataSettingMemory[3];
 }
 void GasMeasurement()
 {
@@ -166,18 +200,16 @@ void KeyPress()
 	if(TimerCounterTIM14>0)
 	{
 		CheckingKeyTimings();
-
 	}
 	else
 	{
-
-		if(TimerCounterTIM15%2==0)
+		if(GlobalAdres != GlobalAdresFlesh)//Всегда крутится в while и если изменен адрес устройства, то проводится переинициализация
 		{
-			ADC_qqq = 3300 * ADC_Read() / 4096;
-			usRegAnalog[0] = ADC_qqq;
-			FlagMogan=0;
+			eMBDisable();
+			eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
+			eMBEnable();
+			GlobalAdresFlesh = GlobalAdres;
 		}
-
 		sprintf(StringIndication, "%d", GlobalAdres);
 		indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
 	}
@@ -226,9 +258,7 @@ void KeyPress()
 			TimerCounterTIM15=0;
 		}
 	  }
-	  eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
-	  eMBEnable();
-
+	  FlagChangeSetting=1;
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
 	  LongPressKey_PB8=0;
 	  TimerCounterTIM14=0;
@@ -276,6 +306,7 @@ void KeyPress()
 			ShortPressKey_PB2=0;
 		  }
 	  }
+	  FlagChangeSetting=1;
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
 	  LongPressKey_PB2=0;
 	  TimerCounterTIM14=0;
@@ -289,7 +320,18 @@ void KeyPress()
 	  TIM15->CR1 |= TIM_CR1_CEN;
 	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
 	  {
-		  sprintf(StringIndication, "%d",  ModeRele);
+		  if(ModeRele)
+		  {
+			  StringIndication[0] = '1';
+			  StringIndication[1] = '1';
+			  StringIndication[2] = '1';
+		  }
+		  else
+		  {
+			  StringIndication[0] = '0';
+			  StringIndication[1] = '0';
+			  StringIndication[2] = '0';
+		  }
 		  if(FlagMogan == 0)
 		  {
 			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);//Индикация текущей настройки релеЁ
@@ -301,17 +343,18 @@ void KeyPress()
 
 		  if(ShortPressKey_PB8)//короткое нжатие
 		  {
-			  ModeRele = 111;
+			  ModeRele = 1;
 			  ShortPressKey_PB8=0;
 			  TimerCounterTIM15=0;
 		  }
 		  if(ShortPressKey_PB2)//короткое нжатие
 		  {
-			  ModeRele = 000;
+			  ModeRele = 0;
 			  ShortPressKey_PB2=0;
 			  TimerCounterTIM15=0;
 		  }
 	  }
+	  FlagChangeSetting=1;
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
 	  LongDoublePressKey_PB2_PB8=0;
 	  TimerCounterTIM14=0;
@@ -348,6 +391,7 @@ void KeyPress()
 			  TimerCounterTIM15=0;
 		  }
 	  }
+	  FlagChangeSetting=1;
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
 	  LongLongDoublePressKey_PB2_PB8=0;
 	  TimerCounterTIM14=0;
@@ -658,6 +702,16 @@ eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNReg
         usNRegs--;
     }
   }
+	else if(usAddress==3334)
+	{
+		*pucRegBuffer++ = (unsigned char)(ModeRele >> 8);
+		*pucRegBuffer++ = (unsigned char)(ModeRele & 0xFF);
+	}
+	else if(usAddress==7778)
+	{
+		*pucRegBuffer++ = (unsigned char)(GlobalAdres >> 8);
+		*pucRegBuffer++ = (unsigned char)(GlobalAdres & 0xFF);
+	}
   else
   {
     eStatus = MB_ENOREG;
@@ -691,14 +745,71 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
 		}
 		else if(eMode==MB_REG_WRITE)
 		{
-			FlagAnalogMessageFromMaster=1;
-			/*Если выставлен флаг на запись в регистр, то pucRegBuffer хранит в себе данные о числах
-			 	 записываемых в регистр
-			 	 если число больше 255, то по адресу pucRegBuffer[0] записывается количественное значение*/
-			usRegAnalog[usAddress-1] = pucRegBuffer[1] + 256*pucRegBuffer[0];
+			if(usAddress==105)
+			{
+				uint16_t buf = pucRegBuffer[1] + 256*pucRegBuffer[0];
+				if(buf>0 && buf<4)
+				{
+					Sensitivity = buf;
+
+					FlagChangeSetting=1;
+				}
+				else
+				{
+					eStatus = MB_EIO;
+				}
+			}
+			else
+			{
+				eStatus = MB_EIO;
+			}
+
 		}
 
 	  }
+	else if(usAddress==3334)
+	{
+		if(eMode==MB_REG_READ)
+		{
+			*pucRegBuffer++ = (unsigned char)(ModeRele >> 8);
+			*pucRegBuffer++ = (unsigned char)(ModeRele & 0xFF);
+		}
+		if(eMode==MB_REG_WRITE)
+		{
+			uint16_t buf=pucRegBuffer[1] + 256*pucRegBuffer[0];
+			if(buf==0 || buf==1)
+			{
+				ModeRele = (uint8_t) buf;
+				FlagChangeSetting=1;
+			}
+			else
+			{
+				eStatus = MB_EIO;
+			}
+		}
+	}
+	else if(usAddress==7778)
+	{
+		if(eMode==MB_REG_READ)
+		{
+			*pucRegBuffer++ = (unsigned char)(GlobalAdres >> 8);
+			*pucRegBuffer++ = (unsigned char)(GlobalAdres & 0xFF);
+		}
+		else if(eMode==MB_REG_WRITE)
+		{
+			uint16_t buf = pucRegBuffer[1] + 256*pucRegBuffer[0];
+			if(buf>0 && buf<100)
+			{
+				GlobalAdres = (uint8_t)buf;
+				FlagChangeSetting=1;
+			}
+			else
+			{
+				eStatus = MB_EIO;
+			}
+
+		}
+	}
 	else
 	{
 		eStatus = MB_ENOREG;

@@ -1,8 +1,4 @@
-Src/main.o: ../Src/main.c ../Inc/main.h \
- ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal.h \
- ../Inc/stm32f0xx_hal_conf.h ../Inc/main.h \
- ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_rcc.h \
- ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_def.h \
+Src/FlashMemory.o: ../Src/FlashMemory.c ../Inc/FlashMemory.h \
  ../Drivers/CMSIS/Device/ST/STM32F0xx/Include/stm32f0xx.h \
  ../Drivers/CMSIS/Device/ST/STM32F0xx/Include/stm32f030x8.h \
  ../Drivers/CMSIS/Include/core_cm0.h \
@@ -10,6 +6,10 @@ Src/main.o: ../Src/main.c ../Inc/main.h \
  ../Drivers/CMSIS/Include/cmsis_compiler.h \
  ../Drivers/CMSIS/Include/cmsis_gcc.h \
  ../Drivers/CMSIS/Device/ST/STM32F0xx/Include/system_stm32f0xx.h \
+ ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal.h \
+ ../Inc/stm32f0xx_hal_conf.h ../Inc/main.h \
+ ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_rcc.h \
+ ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_def.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_rcc_ex.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_gpio.h \
@@ -28,23 +28,9 @@ Src/main.o: ../Src/main.c ../Inc/main.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_tim.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_tim_ex.h \
  ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart.h \
- ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart_ex.h \
- ../modbus/include/mb.h ../modbus/port/port.h ../modbus/include/mbport.h \
- ../modbus/include/mbproto.h ../modbus/include/mbport.h \
- ../modbus/port/mt_port.h ../Inc/indicator_7s_sr.h ../Inc/TimerConf.h \
- ../Inc/ADC.h ../Inc/FlashMemory.h
+ ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart_ex.h
 
-../Inc/main.h:
-
-../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal.h:
-
-../Inc/stm32f0xx_hal_conf.h:
-
-../Inc/main.h:
-
-../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_rcc.h:
-
-../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_def.h:
+../Inc/FlashMemory.h:
 
 ../Drivers/CMSIS/Device/ST/STM32F0xx/Include/stm32f0xx.h:
 
@@ -59,6 +45,16 @@ Src/main.o: ../Src/main.c ../Inc/main.h \
 ../Drivers/CMSIS/Include/cmsis_gcc.h:
 
 ../Drivers/CMSIS/Device/ST/STM32F0xx/Include/system_stm32f0xx.h:
+
+../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal.h:
+
+../Inc/stm32f0xx_hal_conf.h:
+
+../Inc/main.h:
+
+../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_rcc.h:
+
+../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_def.h:
 
 ../Drivers/STM32F0xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h:
 
@@ -97,23 +93,3 @@ Src/main.o: ../Src/main.c ../Inc/main.h \
 ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart.h:
 
 ../Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal_uart_ex.h:
-
-../modbus/include/mb.h:
-
-../modbus/port/port.h:
-
-../modbus/include/mbport.h:
-
-../modbus/include/mbproto.h:
-
-../modbus/include/mbport.h:
-
-../modbus/port/mt_port.h:
-
-../Inc/indicator_7s_sr.h:
-
-../Inc/TimerConf.h:
-
-../Inc/ADC.h:
-
-../Inc/FlashMemory.h:
