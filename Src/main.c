@@ -152,7 +152,7 @@ int main(void)
   InitTIM15();
   InitTIM3();
   ADC_Init();
-//  IWDG_Init();
+  IWDG_Init();
   Setting_Init();
   /* USER CODE END 2 */
   //Пересылка структур с настройками для ModBus
@@ -210,12 +210,12 @@ int main(void)
 	  GasMeasurement();//Измерение
 
 
-	  if(S>TargetConcentration)//если концентрация превысила заданное значение
+	  if(S>(TargetConcentration+TargetConcentration*0.1))//если концентрация превысила заданное значение
 	  {
 		  ModeAlarm();
 	  }
 
-//	  IWDG_Reset(); //Обновление сторожевого таймера
+	  IWDG_Reset(); //Обновление сторожевого таймера
   }
 
 }
@@ -235,8 +235,8 @@ void ModeAlarm()
 			eMBPoll(); //Проверка сообщений по modBus
 			GasMeasurement();//продолжаем измерять
 			indicator_sgd4(SPI1, 0x00, StringIndication, 0b100);
-//			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
-			if(ModeRele==0)
+			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
+			if(ShortPressKey_PB8 || ShortPressKey_PB2)
 			{
 				GPIOB->BSRR |= GPIO_BSRR_BR_12;//Выключаем реле
 				break;
@@ -246,13 +246,13 @@ void ModeAlarm()
 	}
 	else if(ModeRele==0)
 	{
-		while(S>TargetConcentration)
+		while(S>(TargetConcentration-TargetConcentration*0.1))
 		{
 			eMBPoll(); //Проверка сообщений по modBus
 			GPIOB->BSRR |= GPIO_BSRR_BR_12;
 			GasMeasurement();//продолжаем измерять
 			indicator_sgd4(SPI1, 0x00, StringIndication, 0b100);
-//			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
+			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
 		}
 		usRegAnalog[1] = (uint16_t)13;//переходим в режим норма
 
@@ -270,6 +270,7 @@ void Setting_Init()
 	  ReadToFleshMemory(0xF800, DataErrorMemory, 1);
 	  ExceedanceCounter = DataErrorMemory[0]<<8 | DataErrorMemory[1];
 	  usRegAnalog[6] = Sensitivity;
+	  usRegAnalog[11] = ExceedanceCounter;
 
 	  switch (Sensitivity)//Выбираем чувствительность
 	  {
