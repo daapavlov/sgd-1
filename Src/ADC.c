@@ -5,6 +5,7 @@ void ADC_Init()
 
 	GPIOA->MODER |= GPIO_MODER_MODER4;//Режим PA4 аналоговый вход
 
+	ADC->CCR |= ADC_CCR_VREFEN;
     ADC1->CR |= ADC_CR_ADCAL; 				//Запуск калибровки АЦП
     while ((ADC1->CR & ADC_CR_ADCAL)); 		//Ожидаем окончания калибровки
     ADC1->SMPR |= 0b000<<ADC_SMPR_SMP_Pos; //Задаем длительность выборки

@@ -27,7 +27,12 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-#define BaudRateModBusRTU	9600
+#define BaudRateModBusRTU	9600U
+
+#define NH	200U	//Низкая чувствительность
+#define CH	150U	//Средняя чувствительность
+#define VH	100U	//Высокая чувствительность
+
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
@@ -48,6 +53,8 @@ void KeyPress();
 void IWDG_Init();
 void IWDG_Reset();
 void Setting_Init();
+void GasMeasurement();
+void ModeAlarm();
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -57,12 +64,12 @@ void Setting_Init();
 #define REG_INPUT_NUMBER_REGS	12 //КОЛИЧЕСВТО РЕГИСТРОВ
 
 static USHORT usRegAdressInputStart = REG_ADRESS_INPUT_START;
-static USHORT usRegAnalog[REG_INPUT_NUMBER_REGS]={1, 1, 1}; //Регистры аналоговых чисел
+static USHORT usRegAnalog[REG_INPUT_NUMBER_REGS]={11, 0, 0}; //Регистры аналоговых чисел
 															//[0] - 98 адрес
 															//[1] - 99 адрес
 															//[2] - 100 адрес
 															//[6] - 104 адрес
-															//[9] - 107 адрес
+															//[11] - 109 адрес
 
 uint8_t FlagAnalogMessageFromMaster=0; //Флаг, который выставляется, когда приходит изменение в регистр от мастера
 
@@ -84,6 +91,7 @@ uint8_t LongLongDoublePressKey_PB2_PB8=0;//9 сек нажатие
 uint16_t TimerCounterTIM14 = 0;
 uint8_t TimerCounterTIM15 = 0;
 uint8_t FlagMogan=0; //флаг моргания светодиодом
+uint8_t TimerFlagTIM3 = 0;//флаг срабатывания таймера 3
 
 /*Настройки датчика*/
 uint8_t GlobalAdres=1; //Адрес датчика
@@ -92,19 +100,30 @@ uint8_t Sensitivity = 0; //чувствительность датчика
 uint8_t ModeRele = 0; //режим реле по умолчанию
 uint8_t Resistor120 = 0;
 uint8_t FlagChangeSetting=0;
-uint8_t DataSettingMemory[4] = {1};
+uint8_t DataSettingMemory[4];// = {1};
+uint8_t DataErrorMemory[2];
 
 char StringIndication[] = "   ";
 
-uint16_t ADC_qqq = 0;
-
-//uint8_t Dataa[12] = {0x03, 0x45, 0x33, 0x22, 0x57, 0xAC, 0x03, 0x45, 0x33, 0x22, 0x57, 0xAC};
-//uint8_t DataaR[12];
+float VoltageInR2=0;
+double Ir2=0.f; //Ток в цепи
+double Use = 0.f;//Напряжение чувствительного элемента
+float R2=3.0f; //3kOm
+float R1=1.6f; //1.6kOm
+float Rse = 0.f; //Сопротивление чувствительного элемента
+float R_average = 63.f; //Напряжение усредненное за последний час
+float S=0.f, A=31.25f, B=3.3f, C=10.f, D=0.98f, F=0.5f, G=1.06f;
+uint16_t SecondsCounter = 0;
+uint16_t MinuteCounter = 0;
+uint8_t ArrayOfResistanceMeasurementsPerMinute[60];
+uint8_t ArrayOfResistanceMeasurementsPerSecond[60];
+uint16_t ExceedanceCounter;
+uint8_t TargetConcentration;
+uint8_t FlagHourExpired=0;
 /* USER CODE END 0 */
 
 int main(void)
 {
-//	xMBPortSerialPutByte
   /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
   /* MCU Configuration----------------------------------------------------------*/
@@ -131,42 +150,111 @@ int main(void)
   /* USER CODE BEGIN 2 */
   InitTIM14();
   InitTIM15();
+  InitTIM3();
   ADC_Init();
 //  IWDG_Init();
   Setting_Init();
   /* USER CODE END 2 */
-  //Пересылка структур с настройками
+  //Пересылка структур с настройками для ModBus
   MT_PORT_SetTimerModule(&htim16);
   MT_PORT_SetUartModule(&huart2);
-
-//  WriteToFleshMemory(0xFC00, Dataa, 12);
-
-//  ReadToFleshMemory(0xFC00, DataaR, 12);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
   /* USER CODE END WHILE */
-	  if(FlagChangeSetting)
+	  if(FlagChangeSetting)//Если сработал флаг изменения настроек датчика
 	  {
 		  DataSettingMemory[0] = GlobalAdres;
 		  DataSettingMemory[1] = Sensitivity;
 		  DataSettingMemory[2] = ModeRele;
 		  DataSettingMemory[3] = Resistor120;
 
-		  WriteToFleshMemory(0xFC00, DataSettingMemory, 4);
+		  WriteToFleshMemory(0xFC00, DataSettingMemory, 4);//то записываем изменения в память
+
+		eMBDisable();
+		eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
+		eMBEnable();
+
+		  if(Resistor120==1)//включаем резистор 120 Ом
+		  {
+			  GPIOA->BSRR |= GPIO_BSRR_BS_12;
+		  }
+		  else if(Resistor120==0)
+		  {
+			  GPIOA->BSRR |= GPIO_BSRR_BR_12;
+		  }
+
+		  switch (Sensitivity)//Выбираем чувствительность
+		  {
+			  case 0:
+			  {
+				TargetConcentration=NH;
+			  }break;
+
+			  case 1:
+			  {
+				TargetConcentration=CH;
+			  }break;
+
+			  case 2:
+			  {
+				TargetConcentration=VH;
+			  }break;
+		  }
+
 		  FlagChangeSetting=0;
 	  }
 
 	  KeyPress(); //Обработка нажатий клавиш
-	  ADC_qqq = 330 * ADC_Read() / 4096;
-	  usRegAnalog[0] = ADC_qqq;
-	  FlagMogan=0;
-	  eMBPoll();
-	  IWDG_Reset(); //Обновление сторожевого таймера
+
+	  eMBPoll(); //Проверка сообщений по modBus
+
+	  GasMeasurement();//Измерение
+
+
+	  if(S>TargetConcentration)//если концентрация превысила заданное значение
+	  {
+		  ModeAlarm();
+	  }
+
+//	  IWDG_Reset(); //Обновление сторожевого таймера
   }
 
+}
+void ModeAlarm()
+{
+	usRegAnalog[1] = (uint16_t)18; //передается сообщение тревоги
+	ExceedanceCounter++;
+	DataErrorMemory[0] = ExceedanceCounter>>8;
+	DataErrorMemory[1] = ExceedanceCounter;
+	usRegAnalog[11] = ExceedanceCounter;
+	WriteToFleshMemory(0xF800, DataErrorMemory, 1);//то записываем изменения в память
+	if(ModeRele==1)
+	{
+		while(1)//залипание реле
+		{
+			GPIOB->BSRR |= GPIO_BSRR_BS_12;
+//			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
+			if(ModeRele==0)
+			{
+				break;
+			}
+		}
+
+	}
+	else if(ModeRele==0)
+	{
+		while(S>TargetConcentration)
+		{
+			GPIOB->BSRR |= GPIO_BSRR_BS_12;
+			GasMeasurement();//продолжаем измерять
+//			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
+		}
+		usRegAnalog[1] = (uint16_t)13;//переходим в режим норма
+
+	}
 }
 void Setting_Init()
 {
@@ -176,14 +264,112 @@ void Setting_Init()
 	  Sensitivity = DataSettingMemory[1];
 	  ModeRele = DataSettingMemory[2];
 	  Resistor120 = DataSettingMemory[3];
+
+		eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
+		eMBEnable();
+
+	  ReadToFleshMemory(0xF800, DataErrorMemory, 1);
+	  ExceedanceCounter = DataErrorMemory[0]<<8 | DataErrorMemory[1];
+
+
+	  switch (Sensitivity)//Выбираем чувствительность
+	  {
+		  case 0:
+		  {
+			TargetConcentration=NH;
+		  }break;
+
+		  case 1:
+		  {
+			TargetConcentration=CH;
+		  }break;
+
+		  case 2:
+		  {
+			TargetConcentration=VH;
+		  }break;
+	  }
+
+	  if(Resistor120==1)//включаем резистор 120 Ом
+	  {
+		  GPIOA->BSRR |= GPIO_BSRR_BS_12;
+	  }
+	  else if(Resistor120==0)
+	  {
+		  GPIOA->BSRR |= GPIO_BSRR_BR_12;
+	  }
 }
 void GasMeasurement()
 {
+	if(TimerFlagTIM3)//каждую секунду меряем
+	{
+		SecondsCounter++; //Считаем одну секунду
+		VoltageInR2 = 3.3f * ADC_Read() / 4096.0f;
+
+		if(VoltageInR2==0) //Не поступает сигнал с датчика
+		{
+			while(1)
+			{
+				usRegAnalog[1] = (uint16_t)23; //передается сообщение неисправности
+				sprintf(StringIndication, "%d", GlobalAdres);
+				indicator_sgd4(SPI1, 0x00, StringIndication, 0b110);
+			}
+		}
+
+
+		Ir2 = (double)VoltageInR2/(double)(R2*1000);
+		Use = 5.0f - VoltageInR2 - Ir2*(double)(R1*1000);
+		Rse = Use/(double)(Ir2*1000.f);//находим сопротивление чувствительного элемента
+
+		if(R_average!=0)//ждем, пока среднее сопротивление установится (выборка за час)
+		{
+			S=(-A*(B+C/(Rse))*logf(-(-D-F/R_average + (R_average - Rse)/(R_average * G))));
+		}
+		else
+		{
+			S=0;
+		}
+
+		usRegAnalog[2] = (uint16_t)(S);
+
+		ArrayOfResistanceMeasurementsPerSecond[SecondsCounter-1] = (uint8_t)Rse;//запись текущего сопротивления в массив, для нахождения среднего
+
+		if(SecondsCounter==60)//когда прошла минута
+		{
+			MinuteCounter++;
+			uint16_t Sum=0;
+			uint8_t Srednee=0;
+			for(int i=0; i<60; i++)
+			{
+				Sum+=ArrayOfResistanceMeasurementsPerSecond[i];
+			}
+			Srednee = Sum/60;
+			ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] = (uint8_t)Srednee;//записали среднее значение в массив за минуту измерений
+
+			SecondsCounter=0;
+		}
+		if(MinuteCounter==60 || FlagHourExpired==1)//когда прошел час измерений
+		{
+
+			uint16_t Sum=0;
+			uint8_t Srednee=0;
+			for(int i=0; i<60; i++)
+			{
+				Sum+=ArrayOfResistanceMeasurementsPerMinute[i];
+			}
+			Srednee = Sum/60;
+			R_average = (uint16_t)Srednee;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
+											//добавление в массив нового занчения каждую минуту
+			FlagHourExpired=1;//позволяет потом каждую минуту писать новое значение в массив
+			MinuteCounter=0;
+		}
+
+		TimerFlagTIM3=0;
+	}
 
 }
 void IWDG_Init()
 {
-
 	IWDG->KR = 0xCCCC;//Запуск таймера IWDG
 	IWDG->KR = 0x5555;//Разрешение доступа к таймеру
 	IWDG->PR = 0b111;//Предделитель /256
@@ -205,9 +391,9 @@ void KeyPress()
 	{
 		if(GlobalAdres != GlobalAdresFlesh)//Всегда крутится в while и если изменен адрес устройства, то проводится переинициализация
 		{
-			eMBDisable();
-			eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
-			eMBEnable();
+//			eMBDisable();
+//			eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
+//			eMBEnable();
 			GlobalAdresFlesh = GlobalAdres;
 		}
 		sprintf(StringIndication, "%d", GlobalAdres);
@@ -379,14 +565,12 @@ void KeyPress()
 		  if(ShortPressKey_PB8)//короткое нжатие
 		  {
 			  Resistor120 = 120;
-			  GPIOA->BSRR |= GPIO_BSRR_BS_12;
 			  ShortPressKey_PB8=0;
 			  TimerCounterTIM15=0;
 		  }
 		  if(ShortPressKey_PB2)//короткое нжатие
 		  {
 			  Resistor120 = 0;
-			  GPIOA->BSRR |= GPIO_BSRR_BR_12;
 			  ShortPressKey_PB2=0;
 			  TimerCounterTIM15=0;
 		  }
@@ -912,19 +1096,6 @@ void IndicationSensitivity(uint8_t Sensitivity, uint8_t led)
 	}
 }
 /* USER CODE END 4 */
-
-//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-//{
-///* USER CODE BEGIN Callback 0 */
-//
-///* USER CODE END Callback 0 */
-//  if (htim->Instance == TIM6) {
-//    HAL_IncTick();
-//  }
-///* USER CODE BEGIN Callback 1 */
-//
-///* USER CODE END Callback 1 */
-//}
 
 void _Error_Handler(char * file, int line)
 {

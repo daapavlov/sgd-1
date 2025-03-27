@@ -50,7 +50,7 @@ extern TIM_HandleTypeDef htim6;
 extern uint16_t TimerCounterTIM14;
 extern uint8_t TimerCounterTIM15;
 extern uint8_t FlagMogan;
-
+extern uint8_t TimerFlagTIM3;
 /******************************************************************************/
 /*            Cortex-M0 Processor Interruption and Exception Handlers         */ 
 /******************************************************************************/
@@ -156,6 +156,15 @@ void TIM6_IRQHandler(void)
   /* USER CODE BEGIN TIM6_IRQn 1 */
 
   /* USER CODE END TIM6_IRQn 1 */
+}
+
+void TIM3_IRQHandler(void)
+{
+	if (READ_BIT(TIM3->SR, TIM_SR_UIF))
+	{
+		CLEAR_BIT(TIM3->SR, TIM_SR_UIF);  //Сбросим флаг прерывания
+	}
+	TimerFlagTIM3=1;
 }
 
 void TIM14_IRQHandler(void)

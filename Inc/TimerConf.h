@@ -8,4 +8,5 @@
 void InitTIM17();
 void InitTIM14();
 void InitTIM15();
+void InitTIM3();
 #endif /* TIMERCONF_H_ */
