@@ -96,11 +96,11 @@ uint8_t TimerFlagTIM3 = 0;//флаг срабатывания таймера 3
 /*Настройки датчика*/
 uint8_t GlobalAdres=1; //Адрес датчика
 uint8_t GlobalAdresFlesh=1;
-uint8_t Sensitivity = 0; //чувствительность датчика
+uint8_t Sensitivity = 1; //чувствительность датчика
 uint8_t ModeRele = 0; //режим реле по умолчанию
 uint8_t Resistor120 = 0;
 uint8_t FlagChangeSetting=0;
-uint8_t DataSettingMemory[4];// = {1};
+uint8_t DataSettingMemory[4] = {1};
 uint8_t DataErrorMemory[2];
 
 char StringIndication[] = "   ";
@@ -118,7 +118,7 @@ uint16_t MinuteCounter = 0;
 uint8_t ArrayOfResistanceMeasurementsPerMinute[60];
 uint8_t ArrayOfResistanceMeasurementsPerSecond[60];
 uint16_t ExceedanceCounter;
-uint8_t TargetConcentration;
+uint8_t TargetConcentration=VH;
 uint8_t FlagHourExpired=0;
 /* USER CODE END 0 */
 
@@ -170,14 +170,10 @@ int main(void)
 		  DataSettingMemory[1] = Sensitivity;
 		  DataSettingMemory[2] = ModeRele;
 		  DataSettingMemory[3] = Resistor120;
-
+		  usRegAnalog[6] = Sensitivity;
 		  WriteToFleshMemory(0xFC00, DataSettingMemory, 4);//то записываем изменения в память
 
-		eMBDisable();
-		eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
-		eMBEnable();
-
-		  if(Resistor120==1)//включаем резистор 120 Ом
+		  if(Resistor120==120)//включаем резистор 120 Ом
 		  {
 			  GPIOA->BSRR |= GPIO_BSRR_BS_12;
 		  }
@@ -188,17 +184,17 @@ int main(void)
 
 		  switch (Sensitivity)//Выбираем чувствительность
 		  {
-			  case 0:
+			  case 1:
 			  {
 				TargetConcentration=NH;
 			  }break;
 
-			  case 1:
+			  case 2:
 			  {
 				TargetConcentration=CH;
 			  }break;
 
-			  case 2:
+			  case 3:
 			  {
 				TargetConcentration=VH;
 			  }break;
@@ -236,9 +232,13 @@ void ModeAlarm()
 		while(1)//залипание реле
 		{
 			GPIOB->BSRR |= GPIO_BSRR_BS_12;
+			eMBPoll(); //Проверка сообщений по modBus
+			GasMeasurement();//продолжаем измерять
+			indicator_sgd4(SPI1, 0x00, StringIndication, 0b100);
 //			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
 			if(ModeRele==0)
 			{
+				GPIOB->BSRR |= GPIO_BSRR_BR_12;//Выключаем реле
 				break;
 			}
 		}
@@ -248,8 +248,10 @@ void ModeAlarm()
 	{
 		while(S>TargetConcentration)
 		{
-			GPIOB->BSRR |= GPIO_BSRR_BS_12;
+			eMBPoll(); //Проверка сообщений по modBus
+			GPIOB->BSRR |= GPIO_BSRR_BR_12;
 			GasMeasurement();//продолжаем измерять
+			indicator_sgd4(SPI1, 0x00, StringIndication, 0b100);
 //			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
 		}
 		usRegAnalog[1] = (uint16_t)13;//переходим в режим норма
@@ -265,32 +267,29 @@ void Setting_Init()
 	  ModeRele = DataSettingMemory[2];
 	  Resistor120 = DataSettingMemory[3];
 
-		eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
-		eMBEnable();
-
 	  ReadToFleshMemory(0xF800, DataErrorMemory, 1);
 	  ExceedanceCounter = DataErrorMemory[0]<<8 | DataErrorMemory[1];
-
+	  usRegAnalog[6] = Sensitivity;
 
 	  switch (Sensitivity)//Выбираем чувствительность
 	  {
-		  case 0:
+		  case 1:
 		  {
 			TargetConcentration=NH;
 		  }break;
 
-		  case 1:
+		  case 2:
 		  {
 			TargetConcentration=CH;
 		  }break;
 
-		  case 2:
+		  case 3:
 		  {
 			TargetConcentration=VH;
 		  }break;
 	  }
 
-	  if(Resistor120==1)//включаем резистор 120 Ом
+	  if(Resistor120==120)//включаем резистор 120 Ом
 	  {
 		  GPIOA->BSRR |= GPIO_BSRR_BS_12;
 	  }
@@ -391,13 +390,14 @@ void KeyPress()
 	{
 		if(GlobalAdres != GlobalAdresFlesh)//Всегда крутится в while и если изменен адрес устройства, то проводится переинициализация
 		{
-//			eMBDisable();
-//			eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
-//			eMBEnable();
+			eMBDisable();
+			eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
+			eMBEnable();
 			GlobalAdresFlesh = GlobalAdres;
 		}
 		sprintf(StringIndication, "%d", GlobalAdres);
 		indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
+		usRegAnalog[1] = (uint16_t)13; //передается сообщение
 	}
 
 	if((LongPressKey_PB8))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ АДРЕСА
@@ -480,17 +480,18 @@ void KeyPress()
 		  }
 		  if(ShortPressKey_PB2)//короткое нжатие
 		  {
-			if(Sensitivity>0)
+			if(Sensitivity>1)
 			{
 				Sensitivity--;
 			}
 			else
 			{
-				Sensitivity = 0;
+				Sensitivity = 1;
 			}
 			TimerCounterTIM15=0;
 			ShortPressKey_PB2=0;
 		  }
+		  usRegAnalog[6]=Sensitivity;
 	  }
 	  FlagChangeSetting=1;
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
@@ -935,7 +936,7 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
 				if(buf>0 && buf<4)
 				{
 					Sensitivity = buf;
-
+					usRegAnalog[6] = Sensitivity;
 					FlagChangeSetting=1;
 				}
 				else
@@ -1081,15 +1082,15 @@ void IndicationSensitivity(uint8_t Sensitivity, uint8_t led)
 	switch (Sensitivity)
 	{
 
-	case	0:
+	case	1:
 	{
 		indicator_sgd4(SPI1, 0x00, " NH", led);
 	}break;
-	case	1:
+	case	2:
 	{
 		indicator_sgd4(SPI1, 0x00, " CH", led);
 	}break;
-	case	2:
+	case	3:
 	{
 		indicator_sgd4(SPI1, 0x00, " BH", led);
 	}break;
