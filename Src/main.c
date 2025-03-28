@@ -94,8 +94,8 @@ uint8_t FlagMogan=0; //флаг моргания светодиодом
 uint8_t TimerFlagTIM3 = 0;//флаг срабатывания таймера 3
 
 /*Настройки датчика*/
-uint8_t GlobalAdres=1; //Адрес датчика
-uint8_t GlobalAdresFlesh=1;
+uint8_t GlobalAddress=1; //Адрес датчика
+uint8_t GlobalAddressFlesh=1;
 uint8_t Sensitivity = 1; //чувствительность датчика
 uint8_t ModeRele = 0; //режим реле по умолчанию
 uint8_t Resistor120 = 0;
@@ -152,15 +152,15 @@ int main(void)
   InitTIM15();
   InitTIM3();
   ADC_Init();
-//  IWDG_Init();
   Setting_Init();
   /* USER CODE END 2 */
   //Пересылка структур с настройками для ModBus
   MT_PORT_SetTimerModule(&htim16);
   MT_PORT_SetUartModule(&huart2);
 
+  IWDG_Init();
 
-  while(SecondsCounter<30 && MinuteCounter<1)
+  while(SecondsCounter<30 && MinuteCounter<1) //1.5 минуты прогреваем
   {
 	  if(SecondsCounter%2 == 0)
 	  {
@@ -170,10 +170,15 @@ int main(void)
 	  {
 		  indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);
 	  }
-	  GasMeasurement();
+	  if(TimerFlagTIM3)//каждую секунду меряем
+	  {
+		  GasMeasurement();
+		  TimerFlagTIM3=0;
+	  }
+	  IWDG_Reset(); //Обновление сторожевого таймера
   }
-  GasMeasurement();
-  R_average = Rse;
+R_average = Rse; //берем среднее
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -182,7 +187,7 @@ int main(void)
 	  if(FlagChangeSetting)//Если сработал флаг изменения настроек датчика
 	  {
 
-		  DataSettingMemory[0] = GlobalAdres;
+		  DataSettingMemory[0] = GlobalAddress;
 		  DataSettingMemory[1] = Sensitivity;
 		  DataSettingMemory[2] = ModeRele;
 		  DataSettingMemory[3] = Resistor120;
@@ -223,15 +228,18 @@ int main(void)
 
 	  eMBPoll(); //Проверка сообщений по modBus
 
-	  GasMeasurement();//Измерение
-
+	  if(TimerFlagTIM3)//каждую секунду меряем
+	  {
+		  GasMeasurement();//Измерение
+		  TimerFlagTIM3=0;
+	  }
 
 	  if(S>(TargetConcentration+TargetConcentration*0.1))//если концентрация превысила заданное значение
 	  {
 		  ModeAlarm();
 	  }
 
-//	  IWDG_Reset(); //Обновление сторожевого таймера
+	  IWDG_Reset(); //Обновление сторожевого таймера
   }
 
 }
@@ -303,7 +311,7 @@ void Setting_Init()
 {
 	  ReadToFleshMemory(0xFC00, DataSettingMemory, 4);
 
-	  GlobalAdres = DataSettingMemory[0];
+	  GlobalAddress = DataSettingMemory[0];
 	  Sensitivity = DataSettingMemory[1];
 	  ModeRele = DataSettingMemory[2];
 	  Resistor120 = DataSettingMemory[3];
@@ -342,8 +350,6 @@ void Setting_Init()
 }
 void GasMeasurement()
 {
-	if(TimerFlagTIM3)//каждую секунду меряем
-	{
 		SecondsCounter++; //Считаем одну секунду
 		VoltageInR2 = 3.3f * ADC_Read() / 4096.0f;
 
@@ -352,30 +358,15 @@ void GasMeasurement()
 			while(1)
 			{
 				usRegAnalog[1] = (uint16_t)23; //передается сообщение неисправности
-				sprintf(StringIndication, "%d", GlobalAdres);
+				sprintf(StringIndication, "%d", GlobalAddress);
 				indicator_sgd4(SPI1, 0x00, StringIndication, 0b110);
+				IWDG_Reset();
 			}
 		}
-
 
 		Ir2 = (double)VoltageInR2/(double)(R2*1000);
 		Use = 5.0f - VoltageInR2 - Ir2*(double)(R1*1000);
 		Rse = Use/(double)(Ir2*1000.f);//находим сопротивление чувствительного элемента
-
-		if(R_average!=0)//ждем, пока среднее сопротивление установится (выборка за час)
-		{
-			S=(-A*(B+C/(Rse))*logf(-(-D-F/R_average + (R_average - Rse)/(R_average * G))));
-			if(S<0)
-			{
-				S=0;
-			}
-		}
-		else
-		{
-			S=0;
-		}
-
-		usRegAnalog[2] = (uint16_t)(S);
 
 		ArrayOfResistanceMeasurementsPerSecond[SecondsCounter-1] = (uint8_t)Rse;//запись текущего сопротивления в массив, для нахождения среднего
 
@@ -390,12 +381,16 @@ void GasMeasurement()
 			}
 			Srednee = Sum/60;
 			ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] = (uint8_t)Srednee;//записали среднее значение в массив за минуту измерений
-
 			SecondsCounter=0;
-		}
-		if(MinuteCounter==60 || FlagHourExpired==1)//когда прошел час измерений
-		{
+			FlagHourExpired=1;//позволяет потом каждую минуту писать новое значение в массив сопротивления
 
+			if(Srednee>R_average)
+			{
+				R_average = Srednee;
+			}
+		}
+		if(MinuteCounter==60)//каждую минуту пишем
+		{
 			uint16_t Sum=0;
 			uint8_t Srednee=0;
 			for(int i=0; i<60; i++)
@@ -405,13 +400,23 @@ void GasMeasurement()
 			Srednee = Sum/60;
 			R_average = (uint16_t)Srednee;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
 											//добавление в массив нового занчения каждую минуту
-			FlagHourExpired=1;//позволяет потом каждую минуту писать новое значение в массив сопротивления
+			FlagHourExpired=0;
 			MinuteCounter=0;
 		}
 
-		TimerFlagTIM3=0;
-	}
+		if(R_average == 0)
+		{
+			R_average = Rse;
+		}
 
+		S=(-A*(B+C/(Rse))*logf(-(-D-F/R_average + (R_average - Rse)/(R_average * G))));
+		if(S<0)
+		{
+			S=0;
+		}
+
+
+		usRegAnalog[2] = (uint16_t)(S);
 }
 void IWDG_Init()
 {
@@ -434,14 +439,14 @@ void KeyPress()
 	}
 	else
 	{
-		if(GlobalAdres != GlobalAdresFlesh)//Всегда крутится в while и если изменен адрес устройства, то проводится переинициализация
+		if(GlobalAddress != GlobalAddressFlesh)//Всегда крутится в while и если изменен адрес устройства, то проводится переинициализация
 		{
 			eMBDisable();
-			eMBInit(MB_RTU, (UCHAR)GlobalAdres, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
+			eMBInit(MB_RTU, (UCHAR)GlobalAddress, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
 			eMBEnable();
-			GlobalAdresFlesh = GlobalAdres;
+			GlobalAddressFlesh = GlobalAddress;
 		}
-		sprintf(StringIndication, "%d", GlobalAdres);
+		sprintf(StringIndication, "%d", GlobalAddress);
 		indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
 		usRegAnalog[1] = (uint16_t)13; //передается сообщение
 	}
@@ -455,7 +460,8 @@ void KeyPress()
 	  TIM15->CR1 |= TIM_CR1_CEN;
 	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
 	  {
-		sprintf(StringIndication, "%d", GlobalAdres);
+		IWDG_Reset(); //Обновление сторожевого таймера
+		sprintf(StringIndication, "%d", GlobalAddress);
 		if(FlagMogan == 0)
 		{
 			indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
@@ -466,26 +472,26 @@ void KeyPress()
 		}
 		if(ShortPressKey_PB8)//короткое нжатие
 		{
-			if(GlobalAdres<99)
+			if(GlobalAddress<99)
 			{
-				GlobalAdres++;
+				GlobalAddress++;
 			}
 			else
 			{
-				GlobalAdres = 99;
+				GlobalAddress = 99;
 			}
 			ShortPressKey_PB8=0;
 			TimerCounterTIM15=0;
 		}
 		if(ShortPressKey_PB2)//короткое нжатие
 		{
-			if(GlobalAdres>1)
+			if(GlobalAddress>1)
 			{
-				GlobalAdres--;
+				GlobalAddress--;
 			}
 			else
 			{
-				GlobalAdres = 1;
+				GlobalAddress = 1;
 			}
 			ShortPressKey_PB2=0;
 			TimerCounterTIM15=0;
@@ -504,6 +510,7 @@ void KeyPress()
 	  TIM15->CR1 |= TIM_CR1_CEN;
 	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
 	  {
+		  IWDG_Reset(); //Обновление сторожевого таймера
 		  if(FlagMogan == 0)
 		  {
 			  IndicationSensitivity(Sensitivity, 0b010);
@@ -553,6 +560,8 @@ void KeyPress()
 	  TIM15->CR1 |= TIM_CR1_CEN;
 	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
 	  {
+
+		  IWDG_Reset(); //Обновление сторожевого таймера
 		  if(ModeRele)
 		  {
 			  StringIndication[0] = '1';
@@ -600,6 +609,8 @@ void KeyPress()
 	  TIM15->CR1 |= TIM_CR1_CEN;
 	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
 	  {
+
+		  IWDG_Reset(); //Обновление сторожевого таймера
 		  sprintf(StringIndication, "%d",  Resistor120);
 		  if(FlagMogan == 0)
 		  {
@@ -940,8 +951,8 @@ eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNReg
 	}
 	else if(usAddress==7778)
 	{
-		*pucRegBuffer++ = (unsigned char)(GlobalAdres >> 8);
-		*pucRegBuffer++ = (unsigned char)(GlobalAdres & 0xFF);
+		*pucRegBuffer++ = (unsigned char)(GlobalAddress >> 8);
+		*pucRegBuffer++ = (unsigned char)(GlobalAddress & 0xFF);
 	}
   else
   {
@@ -1023,15 +1034,15 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
 	{
 		if(eMode==MB_REG_READ)
 		{
-			*pucRegBuffer++ = (unsigned char)(GlobalAdres >> 8);
-			*pucRegBuffer++ = (unsigned char)(GlobalAdres & 0xFF);
+			*pucRegBuffer++ = (unsigned char)(GlobalAddress >> 8);
+			*pucRegBuffer++ = (unsigned char)(GlobalAddress & 0xFF);
 		}
 		else if(eMode==MB_REG_WRITE)
 		{
 			uint16_t buf = pucRegBuffer[1] + 256*pucRegBuffer[0];
 			if(buf>0 && buf<100)
 			{
-				GlobalAdres = (uint8_t)buf;
+				GlobalAddress = (uint8_t)buf;
 				FlagChangeSetting=1;
 			}
 			else
