@@ -246,10 +246,7 @@ R_average = Rse; //берем среднее
 void ModeAlarm()
 {
 	ExceedanceCounter++;
-	DataErrorMemory[0] = ExceedanceCounter>>8;
-	DataErrorMemory[1] = ExceedanceCounter;
 	usRegAnalog[11] = ExceedanceCounter;
-	WriteToFleshMemory(0xF800, DataErrorMemory, 1);//то записываем изменения в память
 	TIM15->CR1 |= TIM_CR1_CEN;
 	if(ModeRele==1)
 	{
@@ -316,8 +313,6 @@ void Setting_Init()
 	  ModeRele = DataSettingMemory[2];
 	  Resistor120 = DataSettingMemory[3];
 
-	  ReadToFleshMemory(0xF800, DataErrorMemory, 1);
-	  ExceedanceCounter = DataErrorMemory[0]<<8 | DataErrorMemory[1];
 	  usRegAnalog[6] = Sensitivity;
 	  usRegAnalog[11] = ExceedanceCounter;
 
