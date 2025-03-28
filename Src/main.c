@@ -177,7 +177,7 @@ int main(void)
 	  }
 	  IWDG_Reset(); //Обновление сторожевого таймера
   }
-R_average = Rse; //берем среднее
+R_average = Rse; //берем как среднее
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -312,6 +312,26 @@ void Setting_Init()
 	  Sensitivity = DataSettingMemory[1];
 	  ModeRele = DataSettingMemory[2];
 	  Resistor120 = DataSettingMemory[3];
+
+		if(GlobalAddress<0 || GlobalAddress>99)
+		{
+			GlobalAddress=99;
+		}
+
+		if(Sensitivity<1 || Sensitivity>3)
+		{
+			Sensitivity=3;
+		}
+
+		if(Resistor120!=120 || Resistor120!=0)
+		{
+			Resistor120=0;
+		}
+
+		if(ModeRele!=1 || ModeRele!=0)
+		{
+			ModeRele=0;
+		}
 
 	  usRegAnalog[6] = Sensitivity;
 	  usRegAnalog[11] = ExceedanceCounter;

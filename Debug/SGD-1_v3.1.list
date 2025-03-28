@@ -33,17 +33,17 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  14 .debug_macro  00013bc8  00000000  00000000  00058040  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_line   0001e770  00000000  00000000  0006bc08  2**0
+ 15 .debug_line   0001e784  00000000  00000000  0006bc08  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_str    0006a455  00000000  00000000  0008a378  2**0
+ 16 .debug_str    0006a455  00000000  00000000  0008a38c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .comment      00000053  00000000  00000000  000f47cd  2**0
+ 17 .comment      00000053  00000000  00000000  000f47e1  2**0
                   CONTENTS, READONLY
- 18 .debug_frame  00003d24  00000000  00000000  000f4820  2**2
+ 18 .debug_frame  00003d24  00000000  00000000  000f4834  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .stab         000000cc  00000000  00000000  000f8544  2**2
+ 19 .stab         000000cc  00000000  00000000  000f8558  2**2
                   CONTENTS, READONLY, DEBUGGING
- 20 .stabstr      000001b9  00000000  00000000  000f8610  2**0
+ 20 .stabstr      000001b9  00000000  00000000  000f8624  2**0
                   CONTENTS, READONLY, DEBUGGING
 
 Disassembly of section .text:
@@ -12080,78 +12080,78 @@ static void MX_GPIO_Init(void)
  80050f6:	0200      	lsls	r0, r0, #8
  80050f8:	f7ff fda2 	bl	8004c40 <ReadToFleshMemory>
 	  GlobalAddress = DataSettingMemory[0];
- 80050fc:	7823      	ldrb	r3, [r4, #0]
- 80050fe:	7123      	strb	r3, [r4, #4]
+ 80050fc:	7822      	ldrb	r2, [r4, #0]
+ 80050fe:	7122      	strb	r2, [r4, #4]
 	  Sensitivity = DataSettingMemory[1];
  8005100:	7863      	ldrb	r3, [r4, #1]
  8005102:	7163      	strb	r3, [r4, #5]
-	  ModeRele = DataSettingMemory[2];
- 8005104:	78a2      	ldrb	r2, [r4, #2]
- 8005106:	4919      	ldr	r1, [pc, #100]	; (800516c <Setting_Init+0x80>)
- 8005108:	700a      	strb	r2, [r1, #0]
-	  Resistor120 = DataSettingMemory[3];
- 800510a:	78e2      	ldrb	r2, [r4, #3]
- 800510c:	704a      	strb	r2, [r1, #1]
+		if(GlobalAddress<0 || GlobalAddress>99)
+ 8005104:	2a63      	cmp	r2, #99	; 0x63
+ 8005106:	d902      	bls.n	800510e <Setting_Init+0x22>
+			GlobalAddress=99;
+ 8005108:	4a17      	ldr	r2, [pc, #92]	; (8005168 <Setting_Init+0x7c>)
+ 800510a:	2163      	movs	r1, #99	; 0x63
+ 800510c:	7111      	strb	r1, [r2, #4]
+		if(Sensitivity<1 || Sensitivity>3)
+ 800510e:	3b01      	subs	r3, #1
+ 8005110:	b2db      	uxtb	r3, r3
+ 8005112:	2b02      	cmp	r3, #2
+ 8005114:	d902      	bls.n	800511c <Setting_Init+0x30>
+			Sensitivity=3;
+ 8005116:	4b14      	ldr	r3, [pc, #80]	; (8005168 <Setting_Init+0x7c>)
+ 8005118:	2203      	movs	r2, #3
+ 800511a:	715a      	strb	r2, [r3, #5]
+			Resistor120=0;
+ 800511c:	4b13      	ldr	r3, [pc, #76]	; (800516c <Setting_Init+0x80>)
+ 800511e:	2200      	movs	r2, #0
+ 8005120:	701a      	strb	r2, [r3, #0]
+			ModeRele=0;
+ 8005122:	705a      	strb	r2, [r3, #1]
 	  usRegAnalog[6] = Sensitivity;
- 800510e:	82a3      	strh	r3, [r4, #20]
+ 8005124:	4a10      	ldr	r2, [pc, #64]	; (8005168 <Setting_Init+0x7c>)
+ 8005126:	7953      	ldrb	r3, [r2, #5]
+ 8005128:	8293      	strh	r3, [r2, #20]
 	  usRegAnalog[11] = ExceedanceCounter;
- 8005110:	4917      	ldr	r1, [pc, #92]	; (8005170 <Setting_Init+0x84>)
- 8005112:	8809      	ldrh	r1, [r1, #0]
- 8005114:	83e1      	strh	r1, [r4, #30]
+ 800512a:	4911      	ldr	r1, [pc, #68]	; (8005170 <Setting_Init+0x84>)
+ 800512c:	8809      	ldrh	r1, [r1, #0]
+ 800512e:	83d1      	strh	r1, [r2, #30]
 	  switch (Sensitivity)//Выбираем чувствительность
- 8005116:	2b02      	cmp	r3, #2
- 8005118:	d014      	beq.n	8005144 <Setting_Init+0x58>
- 800511a:	2b03      	cmp	r3, #3
- 800511c:	d017      	beq.n	800514e <Setting_Init+0x62>
- 800511e:	2b01      	cmp	r3, #1
- 8005120:	d00b      	beq.n	800513a <Setting_Init+0x4e>
-	  if(Resistor120==120)//включаем резистор 120 Ом
- 8005122:	2a78      	cmp	r2, #120	; 0x78
- 8005124:	d018      	beq.n	8005158 <Setting_Init+0x6c>
-	  else if(Resistor120==0)
- 8005126:	2a00      	cmp	r2, #0
- 8005128:	d11d      	bne.n	8005166 <Setting_Init+0x7a>
+ 8005130:	2b02      	cmp	r3, #2
+ 8005132:	d00f      	beq.n	8005154 <Setting_Init+0x68>
+ 8005134:	2b03      	cmp	r3, #3
+ 8005136:	d012      	beq.n	800515e <Setting_Init+0x72>
+ 8005138:	2b01      	cmp	r3, #1
+ 800513a:	d007      	beq.n	800514c <Setting_Init+0x60>
 		  GPIOA->BSRR |= GPIO_BSRR_BR_12;
- 800512a:	2290      	movs	r2, #144	; 0x90
- 800512c:	05d2      	lsls	r2, r2, #23
- 800512e:	6991      	ldr	r1, [r2, #24]
- 8005130:	2380      	movs	r3, #128	; 0x80
- 8005132:	055b      	lsls	r3, r3, #21
- 8005134:	430b      	orrs	r3, r1
- 8005136:	6193      	str	r3, [r2, #24]
+ 800513c:	2290      	movs	r2, #144	; 0x90
+ 800513e:	05d2      	lsls	r2, r2, #23
+ 8005140:	6991      	ldr	r1, [r2, #24]
+ 8005142:	2380      	movs	r3, #128	; 0x80
+ 8005144:	055b      	lsls	r3, r3, #21
+ 8005146:	430b      	orrs	r3, r1
+ 8005148:	6193      	str	r3, [r2, #24]
 }
- 8005138:	e015      	b.n	8005166 <Setting_Init+0x7a>
+ 800514a:	bd10      	pop	{r4, pc}
 			TargetConcentration=NH;
- 800513a:	490b      	ldr	r1, [pc, #44]	; (8005168 <Setting_Init+0x7c>)
- 800513c:	331f      	adds	r3, #31
- 800513e:	20c8      	movs	r0, #200	; 0xc8
- 8005140:	54c8      	strb	r0, [r1, r3]
+ 800514c:	331f      	adds	r3, #31
+ 800514e:	21c8      	movs	r1, #200	; 0xc8
+ 8005150:	54d1      	strb	r1, [r2, r3]
 		  }break;
- 8005142:	e7ee      	b.n	8005122 <Setting_Init+0x36>
+ 8005152:	e7f3      	b.n	800513c <Setting_Init+0x50>
 			TargetConcentration=CH;
- 8005144:	4908      	ldr	r1, [pc, #32]	; (8005168 <Setting_Init+0x7c>)
- 8005146:	2320      	movs	r3, #32
- 8005148:	2096      	movs	r0, #150	; 0x96
- 800514a:	54c8      	strb	r0, [r1, r3]
+ 8005154:	4a04      	ldr	r2, [pc, #16]	; (8005168 <Setting_Init+0x7c>)
+ 8005156:	2320      	movs	r3, #32
+ 8005158:	2196      	movs	r1, #150	; 0x96
+ 800515a:	54d1      	strb	r1, [r2, r3]
 		  }break;
- 800514c:	e7e9      	b.n	8005122 <Setting_Init+0x36>
+ 800515c:	e7ee      	b.n	800513c <Setting_Init+0x50>
 			TargetConcentration=VH;
- 800514e:	4906      	ldr	r1, [pc, #24]	; (8005168 <Setting_Init+0x7c>)
- 8005150:	2320      	movs	r3, #32
- 8005152:	2064      	movs	r0, #100	; 0x64
- 8005154:	54c8      	strb	r0, [r1, r3]
+ 800515e:	4a02      	ldr	r2, [pc, #8]	; (8005168 <Setting_Init+0x7c>)
+ 8005160:	2320      	movs	r3, #32
+ 8005162:	2164      	movs	r1, #100	; 0x64
+ 8005164:	54d1      	strb	r1, [r2, r3]
 		  }break;
- 8005156:	e7e4      	b.n	8005122 <Setting_Init+0x36>
-		  GPIOA->BSRR |= GPIO_BSRR_BS_12;
- 8005158:	2290      	movs	r2, #144	; 0x90
- 800515a:	05d2      	lsls	r2, r2, #23
- 800515c:	6991      	ldr	r1, [r2, #24]
- 800515e:	2380      	movs	r3, #128	; 0x80
- 8005160:	015b      	lsls	r3, r3, #5
- 8005162:	430b      	orrs	r3, r1
- 8005164:	6193      	str	r3, [r2, #24]
-}
- 8005166:	bd10      	pop	{r4, pc}
+ 8005166:	e7e9      	b.n	800513c <Setting_Init+0x50>
  8005168:	2000000c 	.word	0x2000000c
  800516c:	20000168 	.word	0x20000168
  8005170:	20000404 	.word	0x20000404
@@ -12515,7 +12515,7 @@ static void MX_GPIO_Init(void)
  8005434:	6013      	str	r3, [r2, #0]
 	if(ModeRele==1)
  8005436:	4b52      	ldr	r3, [pc, #328]	; (8005580 <ModeAlarm+0x164>)
- 8005438:	781b      	ldrb	r3, [r3, #0]
+ 8005438:	785b      	ldrb	r3, [r3, #1]
  800543a:	2b01      	cmp	r3, #1
  800543c:	d015      	beq.n	800546a <ModeAlarm+0x4e>
 	else if(ModeRele==0)
@@ -13045,7 +13045,7 @@ eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNReg
  8005764:	7003      	strb	r3, [r0, #0]
 		*pucRegBuffer++ = (unsigned char)(ModeRele & 0xFF);
  8005766:	4b09      	ldr	r3, [pc, #36]	; (800578c <eMBRegInputCB+0x68>)
- 8005768:	781b      	ldrb	r3, [r3, #0]
+ 8005768:	785b      	ldrb	r3, [r3, #1]
  800576a:	7043      	strb	r3, [r0, #1]
   eMBErrorCode eStatus = MB_ENOERR;
  800576c:	2000      	movs	r0, #0
@@ -13199,7 +13199,7 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
  800580e:	7002      	strb	r2, [r0, #0]
 			*pucRegBuffer++ = (unsigned char)(ModeRele & 0xFF);
  8005810:	4a1d      	ldr	r2, [pc, #116]	; (8005888 <eMBRegHoldingCB+0xf8>)
- 8005812:	7812      	ldrb	r2, [r2, #0]
+ 8005812:	7852      	ldrb	r2, [r2, #1]
  8005814:	7042      	strb	r2, [r0, #1]
  8005816:	3002      	adds	r0, #2
 		if(eMode==MB_REG_WRITE)
@@ -13219,7 +13219,7 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
  800582c:	d826      	bhi.n	800587c <eMBRegHoldingCB+0xec>
 				ModeRele = (uint8_t) buf;
  800582e:	4a16      	ldr	r2, [pc, #88]	; (8005888 <eMBRegHoldingCB+0xf8>)
- 8005830:	7013      	strb	r3, [r2, #0]
+ 8005830:	7053      	strb	r3, [r2, #1]
 				FlagChangeSetting=1;
  8005832:	2334      	movs	r3, #52	; 0x34
  8005834:	2101      	movs	r1, #1
@@ -13745,7 +13745,7 @@ void IndicationSensitivity(uint8_t Sensitivity, uint8_t led)
  8005b76:	f7ff fb17 	bl	80051a8 <IWDG_Reset>
 		  if(ModeRele)
  8005b7a:	4b2a      	ldr	r3, [pc, #168]	; (8005c24 <KeyPress+0x340>)
- 8005b7c:	781b      	ldrb	r3, [r3, #0]
+ 8005b7c:	785b      	ldrb	r3, [r3, #1]
  8005b7e:	2b00      	cmp	r3, #0
  8005b80:	d0df      	beq.n	8005b42 <KeyPress+0x25e>
 			  StringIndication[0] = '1';
@@ -13780,7 +13780,7 @@ void IndicationSensitivity(uint8_t Sensitivity, uint8_t led)
 			  ModeRele = 1;
  8005bb2:	0013      	movs	r3, r2
  8005bb4:	2201      	movs	r2, #1
- 8005bb6:	701a      	strb	r2, [r3, #0]
+ 8005bb6:	705a      	strb	r2, [r3, #1]
 			  ShortPressKey_PB8=0;
  8005bb8:	2200      	movs	r2, #0
  8005bba:	2129      	movs	r1, #41	; 0x29
@@ -13792,7 +13792,7 @@ void IndicationSensitivity(uint8_t Sensitivity, uint8_t led)
 			  ModeRele = 0;
  8005bc4:	0013      	movs	r3, r2
  8005bc6:	2200      	movs	r2, #0
- 8005bc8:	701a      	strb	r2, [r3, #0]
+ 8005bc8:	705a      	strb	r2, [r3, #1]
 			  ShortPressKey_PB2=0;
  8005bca:	212a      	movs	r1, #42	; 0x2a
  8005bcc:	545a      	strb	r2, [r3, r1]
@@ -13870,7 +13870,7 @@ void IndicationSensitivity(uint8_t Sensitivity, uint8_t led)
  8005c54:	f7ff faa8 	bl	80051a8 <IWDG_Reset>
 		  sprintf(StringIndication, "%d",  Resistor120);
  8005c58:	4c1a      	ldr	r4, [pc, #104]	; (8005cc4 <KeyPress+0x3e0>)
- 8005c5a:	7862      	ldrb	r2, [r4, #1]
+ 8005c5a:	7822      	ldrb	r2, [r4, #0]
  8005c5c:	481a      	ldr	r0, [pc, #104]	; (8005cc8 <KeyPress+0x3e4>)
  8005c5e:	491b      	ldr	r1, [pc, #108]	; (8005ccc <KeyPress+0x3e8>)
  8005c60:	3024      	adds	r0, #36	; 0x24
@@ -13896,7 +13896,7 @@ void IndicationSensitivity(uint8_t Sensitivity, uint8_t led)
 			  Resistor120 = 120;
  8005c86:	0013      	movs	r3, r2
  8005c88:	2278      	movs	r2, #120	; 0x78
- 8005c8a:	705a      	strb	r2, [r3, #1]
+ 8005c8a:	701a      	strb	r2, [r3, #0]
 			  ShortPressKey_PB8=0;
  8005c8c:	2200      	movs	r2, #0
  8005c8e:	2129      	movs	r1, #41	; 0x29
@@ -13908,7 +13908,7 @@ void IndicationSensitivity(uint8_t Sensitivity, uint8_t led)
 			  Resistor120 = 0;
  8005c98:	0013      	movs	r3, r2
  8005c9a:	2200      	movs	r2, #0
- 8005c9c:	705a      	strb	r2, [r3, #1]
+ 8005c9c:	701a      	strb	r2, [r3, #0]
 			  ShortPressKey_PB2=0;
  8005c9e:	212a      	movs	r1, #42	; 0x2a
  8005ca0:	545a      	strb	r2, [r3, r1]
@@ -13992,7 +13992,7 @@ void _Error_Handler(char * file, int line)
  8005d0c:	f7ff ffe4 	bl	8005cd8 <_Error_Handler>
  8005d10:	20000254 	.word	0x20000254
  8005d14:	40013800 	.word	0x40013800
- 8005d18:	000002ff 	.word	0x000002ff
+ 8005d18:	00000313 	.word	0x00000313
  8005d1c:	08008b14 	.word	0x08008b14
 
 08005d20 <MX_USART2_UART_Init>:
@@ -14031,7 +14031,7 @@ void _Error_Handler(char * file, int line)
 }
  8005d4a:	bd10      	pop	{r4, pc}
     _Error_Handler(__FILE__, __LINE__);
- 8005d4c:	21c5      	movs	r1, #197	; 0xc5
+ 8005d4c:	21ca      	movs	r1, #202	; 0xca
  8005d4e:	0089      	lsls	r1, r1, #2
  8005d50:	4803      	ldr	r0, [pc, #12]	; (8005d60 <MX_USART2_UART_Init+0x40>)
  8005d52:	f7ff ffc1 	bl	8005cd8 <_Error_Handler>
@@ -14074,7 +14074,7 @@ void _Error_Handler(char * file, int line)
  8005d8c:	f7ff ffa4 	bl	8005cd8 <_Error_Handler>
  8005d90:	20000408 	.word	0x20000408
  8005d94:	40014400 	.word	0x40014400
- 8005d98:	000002ea 	.word	0x000002ea
+ 8005d98:	000002fe 	.word	0x000002fe
  8005d9c:	08008b14 	.word	0x08008b14
 
 08005da0 <SystemClock_Config>:
@@ -14165,10 +14165,10 @@ void _Error_Handler(char * file, int line)
  8005e2c:	4802      	ldr	r0, [pc, #8]	; (8005e38 <SystemClock_Config+0x98>)
  8005e2e:	f7ff ff53 	bl	8005cd8 <_Error_Handler>
  8005e32:	46c0      	nop			; (mov r8, r8)
- 8005e34:	00000291 	.word	0x00000291
+ 8005e34:	000002a5 	.word	0x000002a5
  8005e38:	08008b14 	.word	0x08008b14
- 8005e3c:	0000029e 	.word	0x0000029e
- 8005e40:	000002a5 	.word	0x000002a5
+ 8005e3c:	000002b2 	.word	0x000002b2
+ 8005e40:	000002b9 	.word	0x000002b9
 
 08005e44 <main>:
 {
@@ -14250,7 +14250,7 @@ void _Error_Handler(char * file, int line)
  8005ed0:	2100      	movs	r1, #0
  8005ed2:	54d1      	strb	r1, [r2, r3]
  8005ed4:	e7e4      	b.n	8005ea0 <main+0x5c>
-R_average = Rse; //берем среднее
+R_average = Rse; //берем как среднее
  8005ed6:	4b42      	ldr	r3, [pc, #264]	; (8005fe0 <main+0x19c>)
  8005ed8:	699a      	ldr	r2, [r3, #24]
  8005eda:	621a      	str	r2, [r3, #32]
@@ -14264,10 +14264,10 @@ R_average = Rse; //берем среднее
  8005ee6:	704b      	strb	r3, [r1, #1]
 		  DataSettingMemory[2] = ModeRele;
  8005ee8:	0014      	movs	r4, r2
- 8005eea:	7812      	ldrb	r2, [r2, #0]
+ 8005eea:	7852      	ldrb	r2, [r2, #1]
  8005eec:	708a      	strb	r2, [r1, #2]
 		  DataSettingMemory[3] = Resistor120;
- 8005eee:	7862      	ldrb	r2, [r4, #1]
+ 8005eee:	7822      	ldrb	r2, [r4, #0]
  8005ef0:	70ca      	strb	r2, [r1, #3]
 		  usRegAnalog[6] = Sensitivity;
  8005ef2:	828b      	strh	r3, [r1, #20]
@@ -14277,7 +14277,7 @@ R_average = Rse; //берем среднее
  8005ef8:	0200      	lsls	r0, r0, #8
  8005efa:	f7fe fe5d 	bl	8004bb8 <WriteToFleshMemory>
 		  if(Resistor120==120)//включаем резистор 120 Ом
- 8005efe:	7863      	ldrb	r3, [r4, #1]
+ 8005efe:	7823      	ldrb	r3, [r4, #0]
  8005f00:	2b78      	cmp	r3, #120	; 0x78
  8005f02:	d009      	beq.n	8005f18 <main+0xd4>
 		  else if(Resistor120==0)

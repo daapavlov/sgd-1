@@ -5710,8 +5710,8 @@ LOAD c:/st/stm32cubeide_1.8.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.exte
  .bss           0x0000000020000148       0x1c c:/st/stm32cubeide_1.8.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.9-2020-q2-update.win32_2.0.0.202105311346/tools/bin/../lib/gcc/arm-none-eabi/9.3.1/thumb/v6-m/nofp/crtbegin.o
  *fill*         0x0000000020000164        0x4 
  .bss           0x0000000020000168       0x38 ./Src/main.o
-                0x0000000020000168                ModeRele
-                0x0000000020000169                Resistor120
+                0x0000000020000168                Resistor120
+                0x0000000020000169                ModeRele
                 0x000000002000016a                SecondsCounter
                 0x000000002000016c                VoltageInR2
                 0x0000000020000170                Ir2
@@ -6386,7 +6386,7 @@ LOAD c:/st/stm32cubeide_1.8.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.exte
  .debug_macro   0x0000000000013905       0xcd ./modbus/rtu/mbcrc.o
  .debug_macro   0x00000000000139d2      0x1f6 ./modbus/rtu/mbrtu.o
 
-.debug_line     0x0000000000000000    0x1e770
+.debug_line     0x0000000000000000    0x1e784
  .debug_line    0x0000000000000000      0x7cd ./Drivers/CMSIS/Device/ST/STM32F0xx/Source/Templates/system_stm32f0xx.o
  .debug_line    0x00000000000007cd      0x9fc ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal.o
  .debug_line    0x00000000000011c9      0xa79 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_cortex.o
@@ -6402,24 +6402,24 @@ LOAD c:/st/stm32cubeide_1.8.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.exte
  .debug_line    0x000000000001372a      0x8ba ./Src/FlashMemory.o
  .debug_line    0x0000000000013fe4      0x843 ./Src/TimerConf.o
  .debug_line    0x0000000000014827      0xa3a ./Src/indicator_7s_sr.o
- .debug_line    0x0000000000015261     0x1bae ./Src/main.o
- .debug_line    0x0000000000016e0f      0x84a ./Src/stm32f0xx_hal_msp.o
- .debug_line    0x0000000000017659      0x78d ./Src/stm32f0xx_hal_timebase_TIM.o
- .debug_line    0x0000000000017de6      0x900 ./Src/stm32f0xx_it.o
- .debug_line    0x00000000000186e6      0x7fb ./modbus/functions/mbfunccoils.o
- .debug_line    0x0000000000018ee1      0x672 ./modbus/functions/mbfuncdisc.o
- .debug_line    0x0000000000019553      0x8b4 ./modbus/functions/mbfuncholding.o
- .debug_line    0x0000000000019e07      0x653 ./modbus/functions/mbfuncinput.o
- .debug_line    0x000000000001a45a      0x640 ./modbus/functions/mbfuncother.o
- .debug_line    0x000000000001aa9a      0x69a ./modbus/functions/mbutils.o
- .debug_line    0x000000000001b134      0x90a ./modbus/mb.o
- .debug_line    0x000000000001ba3e      0x77e ./modbus/port/mt_port.o
- .debug_line    0x000000000001c1bc      0x55b ./modbus/port/portevent.o
- .debug_line    0x000000000001c717      0x977 ./modbus/port/portserial.o
- .debug_line    0x000000000001d08e      0x8f0 ./modbus/port/porttimer.o
- .debug_line    0x000000000001d97e      0x50b ./modbus/rtu/mbcrc.o
- .debug_line    0x000000000001de89      0x865 ./modbus/rtu/mbrtu.o
- .debug_line    0x000000000001e6ee       0x82 ./startup/startup_stm32f030x8.o
+ .debug_line    0x0000000000015261     0x1bc2 ./Src/main.o
+ .debug_line    0x0000000000016e23      0x84a ./Src/stm32f0xx_hal_msp.o
+ .debug_line    0x000000000001766d      0x78d ./Src/stm32f0xx_hal_timebase_TIM.o
+ .debug_line    0x0000000000017dfa      0x900 ./Src/stm32f0xx_it.o
+ .debug_line    0x00000000000186fa      0x7fb ./modbus/functions/mbfunccoils.o
+ .debug_line    0x0000000000018ef5      0x672 ./modbus/functions/mbfuncdisc.o
+ .debug_line    0x0000000000019567      0x8b4 ./modbus/functions/mbfuncholding.o
+ .debug_line    0x0000000000019e1b      0x653 ./modbus/functions/mbfuncinput.o
+ .debug_line    0x000000000001a46e      0x640 ./modbus/functions/mbfuncother.o
+ .debug_line    0x000000000001aaae      0x69a ./modbus/functions/mbutils.o
+ .debug_line    0x000000000001b148      0x90a ./modbus/mb.o
+ .debug_line    0x000000000001ba52      0x77e ./modbus/port/mt_port.o
+ .debug_line    0x000000000001c1d0      0x55b ./modbus/port/portevent.o
+ .debug_line    0x000000000001c72b      0x977 ./modbus/port/portserial.o
+ .debug_line    0x000000000001d0a2      0x8f0 ./modbus/port/porttimer.o
+ .debug_line    0x000000000001d992      0x50b ./modbus/rtu/mbcrc.o
+ .debug_line    0x000000000001de9d      0x865 ./modbus/rtu/mbrtu.o
+ .debug_line    0x000000000001e702       0x82 ./startup/startup_stm32f030x8.o
 
 .debug_str      0x0000000000000000    0x6a455
  .debug_str     0x0000000000000000    0x5f1c5 ./Drivers/CMSIS/Device/ST/STM32F0xx/Source/Templates/system_stm32f0xx.o
