@@ -81,11 +81,10 @@ uint8_t ShortPressKey_PB8=0;
 uint8_t LongPressKey_PB8=0;//3 сек нажатие
 
 uint8_t ClickFlag_PB2 = 0;
-uint8_t ShortPressKey_PB2=0;
+uint8_t ShortPressKey_PB2=0;//короткое нажатие
 uint8_t LongPressKey_PB2=0;//3 сек нажатие
 
 uint8_t LongDoublePressKey_PB2_PB8=0;//3 сек нажатие
-uint8_t LongLongDoublePressKey_PB2_PB8=0;//9 сек нажатие
 
 /*Для таймеров*/
 uint16_t TimerCounterTIM14 = 0;
@@ -111,7 +110,7 @@ double Use = 0.f;//Напряжение чувствительного элем�
 float R2=3.0f; //3kOm
 float R1=1.6f; //1.6kOm
 float Rse = 0.f; //Сопротивление чувствительного элемента
-float R_average = 0.f; //Напряжение усредненное за последний час
+float R_average = 0.f; //Напряжение усредненное
 float S=0.f, A=31.25f, B=3.3f, C=10.f, D=0.98f, F=0.5f, G=1.06f;
 uint16_t SecondsCounter = 0;
 uint16_t MinuteCounter = 0;
@@ -276,7 +275,7 @@ void ModeAlarm()
 		{
 			ShortPressKey_PB2=0;
 		}
-		TIM14->CR1 &= ~TIM_CR1_CEN;//Включение таймер
+		TIM14->CR1 &= ~TIM_CR1_CEN;//Выключение таймер
 		TimerCounterTIM14=0;
 		GPIOB->BSRR |= GPIO_BSRR_BR_12;//Выключаем реле
 
@@ -514,7 +513,6 @@ void KeyPress()
 	  }
 	  FlagChangeSetting=1;
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
-	  TimerCounterTIM14=0;
 	}
 	if((LongPressKey_PB2))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ ЧУВСТВИТЕЛЬНОСТИ
 	{
@@ -564,94 +562,90 @@ void KeyPress()
 	  }
 	  FlagChangeSetting=1;
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
-	  TimerCounterTIM14=0;
 	}
 
 	if(LongDoublePressKey_PB2_PB8) //сработали обе кнопки в длинную ЭТО ДЛЯ НАСТРОЙКИ ЗАЛИПАНИЯ
 	{
-	  TimerCounterTIM15=0;
-	  indicator_sgd4(SPI1, 0x00, "PRG", 0b010);//Процесс индикации режима настройки
-	  HAL_Delay(1000);
-	  TIM15->CR1 |= TIM_CR1_CEN;
-	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
-	  {
+		TimerCounterTIM15=0;
+		indicator_sgd4(SPI1, 0x00, "PRG", 0b010);//Процесс индикации режима настройки
+		HAL_Delay(2000);
+		if(ClickFlag_PB2==1 && ClickFlag_PB8==1)
+		{
+			indicator_sgd4(SPI1, 0x00, "RE3", 0b010);//Процесс индикации режима настройки
+			HAL_Delay(1000);
+			TIM15->CR1 |= TIM_CR1_CEN;
+			while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
+			{
 
-		  IWDG_Reset(); //Обновление сторожевого таймера
-		  if(ModeRele)
-		  {
-			  StringIndication[0] = '1';
-			  StringIndication[1] = '1';
-			  StringIndication[2] = '1';
-		  }
-		  else
-		  {
-			  StringIndication[0] = '0';
-			  StringIndication[1] = '0';
-			  StringIndication[2] = '0';
-		  }
-		  if(FlagMogan == 0)
-		  {
-			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);//Индикация текущей настройки релеЁ
-		  }
-		  else
-		  {
-			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);//Индикация текущей настройки релеЁ
-		  }
+			  IWDG_Reset(); //Обновление сторожевого таймера
+			  sprintf(StringIndication, "%d",  Resistor120);
+			  if(FlagMogan == 0)
+			  {
+				  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);//Индикация текущей настройки релеЁ
+			  }
+			  else
+			  {
+				  indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);//Индикация текущей настройки релеЁ
+			  }
+			  if(ShortPressKey_PB8)//короткое нжатие
+			  {
+				  Resistor120 = 120;
+				  ShortPressKey_PB8=0;
+				  TimerCounterTIM15=0;
+			  }
+			  if(ShortPressKey_PB2)//короткое нжатие
+			  {
+				  Resistor120 = 0;
+				  ShortPressKey_PB2=0;
+				  TimerCounterTIM15=0;
+			  }
+			}
+		}
+		else
+		{
+			TIM15->CR1 |= TIM_CR1_CEN;
+			while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
+			{
 
-		  if(ShortPressKey_PB8)//короткое нжатие
-		  {
-			  ModeRele = 1;
-			  ShortPressKey_PB8=0;
-			  TimerCounterTIM15=0;
-		  }
-		  if(ShortPressKey_PB2)//короткое нжатие
-		  {
-			  ModeRele = 0;
-			  ShortPressKey_PB2=0;
-			  TimerCounterTIM15=0;
-		  }
-	  }
-	  FlagChangeSetting=1;
-	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
-	  LongDoublePressKey_PB2_PB8=0;
-	  TimerCounterTIM14=0;
-	}
-	if(LongLongDoublePressKey_PB2_PB8)
-	{
-	  TimerCounterTIM15=0;
-	  indicator_sgd4(SPI1, 0x00, "RE3", 0b010);//Процесс индикации режима настройки
-	  HAL_Delay(1000);
-	  TIM15->CR1 |= TIM_CR1_CEN;
-	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
-	  {
+			  IWDG_Reset(); //Обновление сторожевого таймера
+			  if(ModeRele)
+			  {
+				  StringIndication[0] = '1';
+				  StringIndication[1] = '1';
+				  StringIndication[2] = '1';
+			  }
+			  else
+			  {
+				  StringIndication[0] = '0';
+				  StringIndication[1] = '0';
+				  StringIndication[2] = '0';
+			  }
+			  if(FlagMogan == 0)
+			  {
+				  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);//Индикация текущей настройки релеЁ
+			  }
+			  else
+			  {
+				  indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);//Индикация текущей настройки релеЁ
+			  }
 
-		  IWDG_Reset(); //Обновление сторожевого таймера
-		  sprintf(StringIndication, "%d",  Resistor120);
-		  if(FlagMogan == 0)
-		  {
-			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);//Индикация текущей настройки релеЁ
-		  }
-		  else
-		  {
-			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);//Индикация текущей настройки релеЁ
-		  }
-		  if(ShortPressKey_PB8)//короткое нжатие
-		  {
-			  Resistor120 = 120;
-			  ShortPressKey_PB8=0;
-			  TimerCounterTIM15=0;
-		  }
-		  if(ShortPressKey_PB2)//короткое нжатие
-		  {
-			  Resistor120 = 0;
-			  ShortPressKey_PB2=0;
-			  TimerCounterTIM15=0;
-		  }
-	  }
-	  FlagChangeSetting=1;
-	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
-	  LongLongDoublePressKey_PB2_PB8=0;
-	  TimerCounterTIM14=0;
+			  if(ShortPressKey_PB8)//короткое нжатие
+			  {
+				  ModeRele = 1;
+				  ShortPressKey_PB8=0;
+				  TimerCounterTIM15=0;
+			  }
+			  if(ShortPressKey_PB2)//короткое нжатие
+			  {
+				  ModeRele = 0;
+				  ShortPressKey_PB2=0;
+				  TimerCounterTIM15=0;
+			  }
+			}
+		}
+		TIM15->CR1 &= ~TIM_CR1_CEN;
+		FlagChangeSetting=1;
+		LongDoublePressKey_PB2_PB8=0;
 	}
 }
 /** System Clock Configuration
@@ -905,6 +899,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) //Обработчик преры
 		}
 	}
 
+	TimerCounterTIM14=0;
 	if(ClickFlag_PB2 || ClickFlag_PB8)
 	{
 		TIM14->CR1 |= TIM_CR1_CEN;//Включение таймер
@@ -920,24 +915,20 @@ void CheckingKeyTimings()
 	{
 		//ДЛИННОЕ НАЖАТИЕ
 		LongPressKey_PB8=1;
-		TimerCounterTIM14=0;
 	}
 	else if(TimerCounterTIM14==3000 && ClickFlag_PB2==1 && ClickFlag_PB8==0)
 	{
 		//ДЛИННОЕ НАЖАТИЕ
 		LongPressKey_PB2=1;
-		TimerCounterTIM14=0;
 	}
-	else if(TimerCounterTIM14>=3000 && TimerCounterTIM14<9000 && ClickFlag_PB8==0 && ClickFlag_PB2==0)
+	else if(TimerCounterTIM14==3000 && ClickFlag_PB8==1 && ClickFlag_PB2==1)
 	{
 		LongDoublePressKey_PB2_PB8=1;
-		TimerCounterTIM14=0;
 	}
-	else if(TimerCounterTIM14>=9000 && ClickFlag_PB8==0 && ClickFlag_PB2==0)
+	/*else if(TimerCounterTIM14>=9000 && ClickFlag_PB8==0 && ClickFlag_PB2==0)
 	{
 		LongLongDoublePressKey_PB2_PB8=1;
-		TimerCounterTIM14=0;
-	}
+	}*/
 }
 
 eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNRegs)
