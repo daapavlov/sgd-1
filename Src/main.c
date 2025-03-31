@@ -119,6 +119,10 @@ uint8_t ArrayOfResistanceMeasurementsPerSecond[60];
 uint16_t ExceedanceCounter;
 uint8_t TargetConcentration=VH;
 uint8_t FlagHourExpired=0;
+
+
+uint8_t ServiceMessage[20] = {83, 71, 68, 45, 1, 92, 116, 0, 92, 116,  0, 0, 92, 116, 0, 92, 116, 0, 92, 110};
+							/*{SGD-1\t<Адрес устройства>\t<Концентрация>\t<R>\t<R0>/n}*/
 /* USER CODE END 0 */
 
 int main(void)
@@ -240,6 +244,15 @@ R_average = Rse; //берем как среднее
 		  GasMeasurement();//Измерение
 		  sprintf(StringIndication, "%d", GlobalAddress);
 		  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
+
+		  ServiceMessage[7] = GlobalAddress;
+		  ServiceMessage[10] = ((uint8_t)S)>>8;
+		  ServiceMessage[11] = ((uint8_t)S);
+		  ServiceMessage[14] = Rse;
+		  ServiceMessage[17] = R_average;
+
+		  HAL_UART_Transmit_IT(&huart1, ServiceMessage, 20);
+
 		  usRegAnalog[1] = (uint16_t)13; //передается сообщение
 		  TimerFlagTIM3=0;
 	  }
