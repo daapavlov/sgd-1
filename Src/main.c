@@ -94,7 +94,7 @@ uint8_t TimerFlagTIM3 = 0;//флаг срабатывания таймера 3
 
 /*Настройки датчика*/
 uint8_t GlobalAddress=1; //Адрес датчика
-uint8_t GlobalAddressFlesh=1;
+uint8_t GlobalAddressFlesh=0;
 uint8_t Sensitivity = 1; //чувствительность датчика
 uint8_t ModeRele = 0; //режим реле по умолчанию
 uint8_t Resistor120 = 0;
@@ -229,7 +229,18 @@ R_average = Rse; //берем как среднее
 
 	  if(TimerFlagTIM3)//каждую секунду меряем
 	  {
+			if(GlobalAddress != GlobalAddressFlesh)//Всегда крутится в while и если изменен адрес устройства, то проводится переинициализация
+			{
+				eMBDisable();
+				eMBInit(MB_RTU, (UCHAR)GlobalAddress, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
+				eMBEnable();
+				GlobalAddressFlesh = GlobalAddress;
+			}
+
 		  GasMeasurement();//Измерение
+		  sprintf(StringIndication, "%d", GlobalAddress);
+		  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
+		  usRegAnalog[1] = (uint16_t)13; //передается сообщение
 		  TimerFlagTIM3=0;
 	  }
 
@@ -249,7 +260,9 @@ void ModeAlarm()
 	TIM15->CR1 |= TIM_CR1_CEN;
 	if(ModeRele==1)
 	{
-		while(ShortPressKey_PB8!=1 && ShortPressKey_PB2!=1)//залипание реле
+		GPIOB->BSRR |= GPIO_BSRR_BS_12;
+		uint8_t FlagZalip=0;
+		while(S>(TargetConcentration-TargetConcentration*0.1) || (S<(TargetConcentration-TargetConcentration*0.1) && FlagZalip==0))//залипание реле
 		{
 			usRegAnalog[1] = (uint16_t)18; //передается сообщение тревоги
 			if(FlagMogan == 0)
@@ -261,9 +274,18 @@ void ModeAlarm()
 				indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);
 			}
 
-			GPIOB->BSRR |= GPIO_BSRR_BS_12;
+			if((ShortPressKey_PB8==1 || ShortPressKey_PB2==1) && FlagZalip==0)
+			{
+				FlagZalip=1;
+				GPIOB->BSRR |= GPIO_BSRR_BR_12;//Выключаем реле
+			}
+			if(TimerFlagTIM3)
+			{
+				GasMeasurement();//продолжаем измерять
+				TimerFlagTIM3=0;
+			}
 			eMBPoll(); //Проверка сообщений по modBus
-			GasMeasurement();//продолжаем измерять
+
 			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
 
 		}
@@ -275,10 +297,10 @@ void ModeAlarm()
 		{
 			ShortPressKey_PB2=0;
 		}
-		TIM14->CR1 &= ~TIM_CR1_CEN;//Выключение таймер
-		TimerCounterTIM14=0;
-		GPIOB->BSRR |= GPIO_BSRR_BR_12;//Выключаем реле
 
+		TimerCounterTIM14=0;
+
+		TIM14->CR1 &= ~TIM_CR1_CEN;//Выключение таймер
 	}
 	else if(ModeRele==0)
 	{
@@ -293,9 +315,14 @@ void ModeAlarm()
 			{
 				indicator_sgd4(SPI1, 0x00, StringIndication, 0b000);
 			}
+
 			eMBPoll(); //Проверка сообщений по modBus
 			GPIOB->BSRR |= GPIO_BSRR_BR_12;
-			GasMeasurement();//продолжаем измерять
+			if(TimerFlagTIM3)
+			{
+				GasMeasurement();//продолжаем измерять
+				TimerFlagTIM3=0;
+			}
 			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
 		}
 		usRegAnalog[1] = (uint16_t)13;//переходим в режим норма
@@ -396,31 +423,21 @@ void GasMeasurement()
 			Srednee = Sum/60;
 			ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] = (uint8_t)Srednee;//записали среднее значение в массив за минуту измерений
 			SecondsCounter=0;
-			FlagHourExpired=1;//позволяет потом каждую минуту писать новое значение в массив сопротивления
 
-			if(Srednee>R_average)
+			if(MinuteCounter==60 || FlagHourExpired==1)//каждую минуту пишем
 			{
-				R_average = Srednee;
+				uint16_t Sum2=0;
+				uint8_t Srednee2=0;
+				for(int i=0; i<60; i++)
+				{
+					Sum2+=ArrayOfResistanceMeasurementsPerMinute[i];
+				}
+				Srednee2 = Sum/60;
+				R_average = (uint16_t)Srednee2;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
+												//добавление в массив нового занчения каждую минуту
+				FlagHourExpired=1;
+				MinuteCounter=0;
 			}
-		}
-		if(MinuteCounter==60)//каждую минуту пишем
-		{
-			uint16_t Sum=0;
-			uint8_t Srednee=0;
-			for(int i=0; i<60; i++)
-			{
-				Sum+=ArrayOfResistanceMeasurementsPerMinute[i];
-			}
-			Srednee = Sum/60;
-			R_average = (uint16_t)Srednee;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
-											//добавление в массив нового занчения каждую минуту
-			FlagHourExpired=0;
-			MinuteCounter=0;
-		}
-
-		if(R_average == 0)
-		{
-			R_average = Rse;
 		}
 
 		S=(-A*(B+C/(Rse))*logf(-(-D-F/R_average + (R_average - Rse)/(R_average * G))));
@@ -429,8 +446,8 @@ void GasMeasurement()
 			S=0;
 		}
 
-
 		usRegAnalog[2] = (uint16_t)(S);
+		usRegAnalog[3] = (uint16_t)(R_average);
 }
 void IWDG_Init()
 {
@@ -450,19 +467,6 @@ void KeyPress()
 	if(TimerCounterTIM14>0)
 	{
 		CheckingKeyTimings();
-	}
-	else
-	{
-		if(GlobalAddress != GlobalAddressFlesh)//Всегда крутится в while и если изменен адрес устройства, то проводится переинициализация
-		{
-			eMBDisable();
-			eMBInit(MB_RTU, (UCHAR)GlobalAddress, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
-			eMBEnable();
-			GlobalAddressFlesh = GlobalAddress;
-		}
-		sprintf(StringIndication, "%d", GlobalAddress);
-		indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
-		usRegAnalog[1] = (uint16_t)13; //передается сообщение
 	}
 
 	if((LongPressKey_PB8))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ АДРЕСА
