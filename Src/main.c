@@ -29,32 +29,32 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 #define BaudRateModBusRTU	9600U
 
-#define NH	200U	//Низкая чувствительность
-#define CH	150U	//Средняя чувствительность
-#define VH	100U	//Высокая чувствительность
+#define	R120_SET	GPIOA->BSRR |= GPIO_BSRR_BS_12;
+#define	R120_RESET	GPIOA->BSRR |= GPIO_BSRR_BR_12;
+
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_SPI1_Init(void);
-static void MX_USART1_UART_Init(void);
-static void MX_USART2_UART_Init(void);
-static void MX_TIM16_Init(void);
+void SystemClock_Config(void);//инициализация системного тактирования
+static void MX_GPIO_Init(void);//инициализация gpio
+static void MX_SPI1_Init(void);//инициализация spi
+static void MX_USART1_UART_Init(void);//инициализация usart1
+static void MX_USART2_UART_Init(void);//инициализация usart2
+static void MX_TIM16_Init(void);//инициализация таймера 16 для модбаса
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void CheckingKeyTimings();
-void IndicationSensitivity(uint8_t Sensitivity, uint8_t led);
-void KeyPress();
-void IWDG_Init();
-void IWDG_Reset();
-void Setting_Init();
-void GasMeasurement();
-void ModeAlarm();
+void CheckingKeyTimings();//проверка длителльности нажатия кнопок
+void IndicationSensitivity(uint8_t Sensitivity, uint8_t led);//индикация режима чувствительности на лед дисплее
+void KeyPress();//функция реализации алгоритмов работы меню управления
+void IWDG_Init();//инициализация сторожевого таймера
+void IWDG_Reset();//сброс сторожевого таймера
+void Setting_Init();//функция инициализации основных настроек после сброса
+void GasMeasurement();//функция измерения условной концентрации
+void ModeAlarm();//функция реализации режима тревоги
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -72,8 +72,10 @@ static USHORT usRegAnalog[REG_INPUT_NUMBER_REGS]={11, 0, 0}; //Регистры 
 															//[11] - 109 адрес
 
 uint8_t FlagAnalogMessageFromMaster=0; //Флаг, который выставляется, когда приходит изменение в регистр от мастера
+uint8_t SerialNumber_0=0, SerialNumber_1=0, SerialNumber_2=0, SerialNumber_3=0;//регистры серийного номера
 
-uint16_t EXTI_PRreg;
+
+uint16_t EXTI_PRreg; //регистры PR
 
 /*Для кнопок управления*/
 uint8_t ClickFlag_PB8 = 0;
@@ -99,25 +101,30 @@ uint8_t Sensitivity = 1; //чувствительность датчика
 uint8_t ModeRele = 0; //режим реле по умолчанию
 uint8_t Resistor120 = 0;
 uint8_t FlagChangeSetting=0;
-uint8_t DataSettingMemory[4] = {1};
+uint8_t DataSettingMemory[8] = {1};//массив записи данных в память
 uint8_t DataErrorMemory[2];
-
+uint8_t StatusMode=13;
 char StringIndication[] = "---";
 
+
+uint16_t NH = 300;	//Низкая чувствительность
+uint16_t CH = 225;	//Средняя чувствительность
+uint16_t VH = 150;	//Высокая чувствительность
+
 float VoltageInR2=0;
-double Ir2=0.f; //Ток в цепи
-double Use = 0.f;//Напряжение чувствительного элемента
+float Ir2=0.f; //Ток в цепи
+float Use = 0.f;//Напряжение чувствительного элемента
 float R2=3.0f; //3kOm
 float R1=1.6f; //1.6kOm
 float Rse = 0.f; //Сопротивление чувствительного элемента
-float R_average = 0.f; //Напряжение усредненное
+uint16_t R_average = 0; //Напряжение усредненное
 float S=0.f, A=31.25f, B=3.3f, C=10.f, D=0.98f, F=0.5f, G=1.06f;
-uint16_t SecondsCounter = 0;
-uint16_t MinuteCounter = 0;
-uint8_t ArrayOfResistanceMeasurementsPerMinute[60];
-uint8_t ArrayOfResistanceMeasurementsPerSecond[60];
+uint8_t SecondsCounter = 0;
+uint8_t MinuteCounter = 0;
+uint16_t ArrayOfResistanceMeasurementsPerMinute[60];
+uint16_t ArrayOfResistanceMeasurementsPerSecond[60];
 uint16_t ExceedanceCounter;
-uint8_t TargetConcentration=VH;
+uint16_t TargetConcentration;
 uint8_t FlagHourExpired=0;
 
 
@@ -154,14 +161,14 @@ int main(void)
   InitTIM14();
   InitTIM15();
   InitTIM3();
-  ADC_Init();
+  ADC_Init();//инициализация ацп
   Setting_Init();
   /* USER CODE END 2 */
   //Пересылка структур с настройками для ModBus
   MT_PORT_SetTimerModule(&htim16);
   MT_PORT_SetUartModule(&huart2);
 
-  IWDG_Init();
+//  IWDG_Init();
 
   while(SecondsCounter<30 && MinuteCounter<1) //1.5 минуты прогреваем
   {
@@ -180,7 +187,7 @@ int main(void)
 	  }
 	  IWDG_Reset(); //Обновление сторожевого таймера
   }
-R_average = Rse; //берем как среднее
+R_average = Rse; //берем как среднее текущее значение сопротивления
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -190,20 +197,29 @@ R_average = Rse; //берем как среднее
 	  if(FlagChangeSetting)//Если сработал флаг изменения настроек датчика
 	  {
 
+		  //Записываем в массив основные настройки, которые пойдут во флеш память
 		  DataSettingMemory[0] = GlobalAddress;
 		  DataSettingMemory[1] = Sensitivity;
 		  DataSettingMemory[2] = ModeRele;
 		  DataSettingMemory[3] = Resistor120;
+
+		  DataSettingMemory[4] = SerialNumber_0;
+		  DataSettingMemory[5] = SerialNumber_1;
+		  DataSettingMemory[6] = SerialNumber_2;
+		  DataSettingMemory[7] = SerialNumber_3;
+
+		  //Так как были изменения - заново инициализируем настройки
 		  usRegAnalog[6] = Sensitivity;
-		  WriteToFleshMemory(0xFC00, DataSettingMemory, 4);//то записываем изменения в память
+		  WriteToFleshMemory(0xFC00, DataSettingMemory, 12);//то записываем изменения в память
 
 		  if(Resistor120==120)//включаем резистор 120 Ом
 		  {
-			  GPIOA->BSRR |= GPIO_BSRR_BS_12;
+			  R120_SET;
 		  }
 		  else if(Resistor120==0)
 		  {
-			  GPIOA->BSRR |= GPIO_BSRR_BR_12;
+
+			  R120_RESET;
 		  }
 
 		  switch (Sensitivity)//Выбираем чувствительность
@@ -233,7 +249,7 @@ R_average = Rse; //берем как среднее
 
 	  if(TimerFlagTIM3)//каждую секунду меряем
 	  {
-			if(GlobalAddress != GlobalAddressFlesh)//Всегда крутится в while и если изменен адрес устройства, то проводится переинициализация
+			if(GlobalAddress != GlobalAddressFlesh)//если изменен адрес устройства, то проводится переинициализация
 			{
 				eMBDisable();
 				eMBInit(MB_RTU, (UCHAR)GlobalAddress, 0, BaudRateModBusRTU, MB_PAR_NONE); //начальные настройки modBus
@@ -242,22 +258,34 @@ R_average = Rse; //берем как среднее
 			}
 
 		  GasMeasurement();//Измерение
-		  sprintf(StringIndication, "%d", GlobalAddress);
-		  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
 
+		  //Заполнение сервесной строки вывода в уарт
 		  ServiceMessage[7] = GlobalAddress;
 		  ServiceMessage[10] = ((uint8_t)S)>>8;
 		  ServiceMessage[11] = ((uint8_t)S);
 		  ServiceMessage[14] = Rse;
 		  ServiceMessage[17] = R_average;
 
-		  HAL_UART_Transmit_IT(&huart1, ServiceMessage, 20);
+		  HAL_UART_Transmit_IT(&huart1, ServiceMessage, 20);//Отправка посылки в сервесный uart
 
-		  usRegAnalog[1] = (uint16_t)13; //передается сообщение
+
+		  if(StatusMode==13)
+		  {
+			  usRegAnalog[1] = (uint16_t)13; //передается сообщение
+			  sprintf(StringIndication, "%d", GlobalAddress);
+			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
+		  }
+		  else if(StatusMode==23)
+		  {
+			  usRegAnalog[1] = (uint16_t)23; //передается сообщение
+			  sprintf(StringIndication, "%d", GlobalAddress);
+			  indicator_sgd4(SPI1, 0x00, StringIndication, 0b110);
+		  }
+
 		  TimerFlagTIM3=0;
 	  }
 
-	  if(S>(TargetConcentration+TargetConcentration*0.1))//если концентрация превысила заданное значение
+	  if(S>(TargetConcentration+TargetConcentration))//если концентрация превысила заданное значение
 	  {
 		  ModeAlarm();
 	  }
@@ -270,15 +298,17 @@ void ModeAlarm()
 {
 	ExceedanceCounter++;
 	usRegAnalog[11] = ExceedanceCounter;
-	TIM15->CR1 |= TIM_CR1_CEN;
-	if(ModeRele==1)
+	TIM15->CR1 |= TIM_CR1_CEN;//запуск таймера 15
+	if(ModeRele==1)//Режим залипания реле
 	{
 		GPIOB->BSRR |= GPIO_BSRR_BS_12;
 		uint8_t FlagZalip=0;
-		while(S>(TargetConcentration-TargetConcentration*0.1) || (S<(TargetConcentration-TargetConcentration*0.1) && FlagZalip==0))//залипание реле
+		//крутимся если концентрация выше уставки и если она упала, но не было выключено реле, то тоже крутимся
+		while(S>(TargetConcentration-TargetConcentration*0.5) || (S<(TargetConcentration-TargetConcentration*0.1) && FlagZalip==0))//залипание реле
 		{
 			usRegAnalog[1] = (uint16_t)18; //передается сообщение тревоги
-			if(FlagMogan == 0)
+			StatusMode = 18;
+			if(FlagMogan == 0)//моргание красым диодом
 			{
 				indicator_sgd4(SPI1, 0x00, StringIndication, 0b100);
 			}
@@ -300,8 +330,8 @@ void ModeAlarm()
 			eMBPoll(); //Проверка сообщений по modBus
 
 			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
-
 		}
+		//если были нажаты кнопки, сбраываем флаги
 		if(ShortPressKey_PB8==1)
 		{
 			ShortPressKey_PB8=0;
@@ -317,9 +347,10 @@ void ModeAlarm()
 	}
 	else if(ModeRele==0)
 	{
-		while(S>(TargetConcentration-TargetConcentration*0.1))
+		while(S>(TargetConcentration-TargetConcentration*0.5))//крутимся, пока концентрация выше
 		{
 			usRegAnalog[1] = (uint16_t)18; //передается сообщение тревоги
+			StatusMode = 18;
 			if(FlagMogan == 0)
 			{
 				indicator_sgd4(SPI1, 0x00, StringIndication, 0b100);
@@ -338,23 +369,28 @@ void ModeAlarm()
 			}
 			IWDG_Reset(); //Обновление сторожевого таймера (чтобы не выкинуло)
 		}
-		usRegAnalog[1] = (uint16_t)13;//переходим в режим норма
+		StatusMode = 13;//переходим в режим норма
 
 	}
 	TIM15->CR1 &= ~TIM_CR1_CEN;
 }
 void Setting_Init()
 {
-	  ReadToFleshMemory(0xFC00, DataSettingMemory, 4);
+	  ReadToFleshMemory(0xFC00, DataSettingMemory, 8);//читаем из памяти основные настроки и потом записываем их в нужные переменные
 
 	  GlobalAddress = DataSettingMemory[0];
 	  Sensitivity = DataSettingMemory[1];
 	  ModeRele = DataSettingMemory[2];
 	  Resistor120 = DataSettingMemory[3];
 
-		if(GlobalAddress<0 || GlobalAddress>99)
+	  SerialNumber_0 = DataSettingMemory[4];
+	  SerialNumber_1 = DataSettingMemory[5];
+	  SerialNumber_2 = DataSettingMemory[6];
+	  SerialNumber_3 = DataSettingMemory[7];
+
+		if(GlobalAddress<1 || GlobalAddress>99)//на случай, если изначально в памяти не было записи
 		{
-			GlobalAddress=99;
+			GlobalAddress=1;
 		}
 
 		if(Sensitivity<1 || Sensitivity>3)
@@ -395,40 +431,35 @@ void Setting_Init()
 
 	  if(Resistor120==120)//включаем резистор 120 Ом
 	  {
-		  GPIOA->BSRR |= GPIO_BSRR_BS_12;
+		  R120_SET;
 	  }
 	  else if(Resistor120==0)
 	  {
-		  GPIOA->BSRR |= GPIO_BSRR_BR_12;
+		  R120_RESET;
 	  }
 }
 void GasMeasurement()
 {
 		SecondsCounter++; //Считаем одну секунду
-		VoltageInR2 = 3.3f * ADC_Read() / 4096.0f;
+		VoltageInR2 = 3.3f * ADC_Read() / 4096.0f;//Переводим значение АЦП (12бит) в вольты
 
 		if(VoltageInR2==0) //Не поступает сигнал с датчика
 		{
-			while(1)
-			{
-				usRegAnalog[1] = (uint16_t)23; //передается сообщение неисправности
-				sprintf(StringIndication, "%d", GlobalAddress);
-				indicator_sgd4(SPI1, 0x00, StringIndication, 0b110);
-				IWDG_Reset();
-			}
+			StatusMode = 23;
 		}
 
-		Ir2 = (double)VoltageInR2/(double)(R2*1000);
-		Use = 5.0f - VoltageInR2 - Ir2*(double)(R1*1000);
-		Rse = Use/(double)(Ir2*1000.f);//находим сопротивление чувствительного элемента
+		Ir2 = (double)VoltageInR2/(double)(R2*1000);//Вычисляем ток в цепи
+		Use = 5.0f - VoltageInR2 - Ir2*(double)(R1*1000);//вычиляем напряжение на чувств элементе
+		Rse = Use/(double)(Ir2*1000.f);//находим сопротивление чувствительного элемента в кОм
 
 		ArrayOfResistanceMeasurementsPerSecond[SecondsCounter-1] = (uint8_t)Rse;//запись текущего сопротивления в массив, для нахождения среднего
 
 		if(SecondsCounter==60)//когда прошла минута
 		{
 			MinuteCounter++;
-			uint16_t Sum=0;
-			uint8_t Srednee=0;
+			uint32_t Sum=0;
+			uint16_t Srednee=0;
+			//Находим среднее сопротивление за минуту
 			for(int i=0; i<60; i++)
 			{
 				Sum+=ArrayOfResistanceMeasurementsPerSecond[i];
@@ -437,30 +468,41 @@ void GasMeasurement()
 			ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] = (uint8_t)Srednee;//записали среднее значение в массив за минуту измерений
 			SecondsCounter=0;
 
+			if(R_average<ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1])//если текущее сопротивление выше, чем сопротивление среднее,
+			{																		//	то приравниваем
+				R_average = ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1];//записали среднее сопротивление
+			}
 			if(MinuteCounter==60 || FlagHourExpired==1)//каждую минуту пишем
 			{
-				uint16_t Sum2=0;
-				uint8_t Srednee2=0;
+				uint32_t Sum2=0;
+				uint16_t Srednee2=0;
+				//Находим среднее сопротивление за час
 				for(int i=0; i<60; i++)
 				{
 					Sum2+=ArrayOfResistanceMeasurementsPerMinute[i];
 				}
 				Srednee2 = Sum/60;
-				R_average = (uint16_t)Srednee2;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
+				R_average = Srednee2;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
 												//добавление в массив нового занчения каждую минуту
-				FlagHourExpired=1;
-				MinuteCounter=0;
+				FlagHourExpired=1;//флаг выставляется, когда прошел час и пишется скользящее среднее
+				if(MinuteCounter==60)
+				{
+					MinuteCounter=0;
+				}
+
 			}
 		}
 
-		S=(-A*(B+C/(Rse))*logf(-(-D-F/R_average + (R_average - Rse)/(R_average * G))));
+		S=(-A*(B+C/(Rse))*logf(-(-D-F/R_average + (R_average - Rse)/(R_average * G))));//вычисляем концентацию
 		if(S<0)
 		{
 			S=0;
 		}
 
+		//пишем значения в регистры модбас
 		usRegAnalog[2] = (uint16_t)(S);
 		usRegAnalog[3] = (uint16_t)(R_average);
+		usRegAnalog[4] = (uint16_t)(Rse);
 }
 void IWDG_Init()
 {
@@ -473,13 +515,13 @@ void IWDG_Init()
 }
 void IWDG_Reset()
 {
-	IWDG->KR = 0xAAAA;
+	IWDG->KR = 0xAAAA;//сбрасываем сторожевой таймер
 }
 void KeyPress()
 {
-	if(TimerCounterTIM14>0)
+	if(TimerCounterTIM14>0)//таймер включается, когда нажаты кнопки
 	{
-		CheckingKeyTimings();
+		CheckingKeyTimings();//если кнопки нажаты, то смотрим длину нажатия
 	}
 
 	if((LongPressKey_PB8))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ АДРЕСА
@@ -488,12 +530,12 @@ void KeyPress()
 	  LongPressKey_PB8=0;
 	  indicator_sgd4(SPI1, 0x00, "PRG", 0b010);//Процесс индикации режима настройки
 	  HAL_Delay(1000);
-	  TIM15->CR1 |= TIM_CR1_CEN;
+	  TIM15->CR1 |= TIM_CR1_CEN;//запуск таймера 15
 	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
 	  {
 		IWDG_Reset(); //Обновление сторожевого таймера
 		sprintf(StringIndication, "%d", GlobalAddress);
-		if(FlagMogan == 0)
+		if(FlagMogan == 0)//моргаем светодиодом
 		{
 			indicator_sgd4(SPI1, 0x00, StringIndication, 0b010);
 		}
@@ -528,7 +570,7 @@ void KeyPress()
 			TimerCounterTIM15=0;
 		}
 	  }
-	  FlagChangeSetting=1;
+	  FlagChangeSetting=1;//выставляем флаг изменения настроек
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
 	}
 	if((LongPressKey_PB2))//Сработало длинное нажатие ЭТО ДЛЯ НАСТРОЙКИ ЧУВСТВИТЕЛЬНОСТИ
@@ -537,11 +579,11 @@ void KeyPress()
 	  LongPressKey_PB2=0;
 	  indicator_sgd4(SPI1, 0x00, "PRG", 0b010);//Процесс индикации режима настройки
 	  HAL_Delay(1000);
-	  TIM15->CR1 |= TIM_CR1_CEN;
+	  TIM15->CR1 |= TIM_CR1_CEN;//запуск таймера 15
 	  while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
 	  {
 		  IWDG_Reset(); //Обновление сторожевого таймера
-		  if(FlagMogan == 0)
+		  if(FlagMogan == 0)//моргаем светодиодом
 		  {
 			  IndicationSensitivity(Sensitivity, 0b010);
 		  }
@@ -577,7 +619,7 @@ void KeyPress()
 		  }
 		  usRegAnalog[6]=Sensitivity;
 	  }
-	  FlagChangeSetting=1;
+	  FlagChangeSetting=1;//выставляем флаг изменения настроек
 	  TIM15->CR1 &= ~TIM_CR1_CEN;//выключаем таймер мигания
 	}
 
@@ -586,11 +628,11 @@ void KeyPress()
 		TimerCounterTIM15=0;
 		indicator_sgd4(SPI1, 0x00, "PRG", 0b010);//Процесс индикации режима настройки
 		HAL_Delay(2000);
-		if(ClickFlag_PB2==1 && ClickFlag_PB8==1)
+		if(ClickFlag_PB2==1 && ClickFlag_PB8==1)//нажатие обеих кнопок три секунды
 		{
 			indicator_sgd4(SPI1, 0x00, "RE3", 0b010);//Процесс индикации режима настройки
 			HAL_Delay(1000);
-			TIM15->CR1 |= TIM_CR1_CEN;
+			TIM15->CR1 |= TIM_CR1_CEN;//запуск таймера 15
 			while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
 			{
 
@@ -618,9 +660,9 @@ void KeyPress()
 			  }
 			}
 		}
-		else
+		else//нажатие обеих кнопок более 3х секунд
 		{
-			TIM15->CR1 |= TIM_CR1_CEN;
+			TIM15->CR1 |= TIM_CR1_CEN;//запуск таймера 15//запуск таймера 15
 			while(TimerCounterTIM15<=6) //Если таймер больше 3 сек, то заканчиваем настройку
 			{
 
@@ -661,7 +703,7 @@ void KeyPress()
 			}
 		}
 		TIM15->CR1 &= ~TIM_CR1_CEN;
-		FlagChangeSetting=1;
+		FlagChangeSetting=1;//выставляем флаг изменения настроек
 		LongDoublePressKey_PB2_PB8=0;
 	}
 }
@@ -831,10 +873,6 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
   //DE-RE:
-  /*GPIOA->MODER |= 0b01<<GPIO_MODER_MODER0;//OUTPUT MODE
-  GPIOA->OTYPER |= 0b01<<GPIO_OTYPER_OT_0;//OPEN-DRAIN
-  GPIOA->OSPEEDR |= 0b11<<GPIO_OSPEEDR_OSPEEDR0_Pos;//HIGH SPEED*/
-
   GPIOA->MODER |= GPIO_MODER_MODER0_0;
   GPIOA->OTYPER &= ~ GPIO_OTYPER_OT_0;
   GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR0;
@@ -967,16 +1005,36 @@ eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNReg
         usNRegs--;
     }
   }
-	else if(usAddress==3334)
+  else if(usAddress==3334)
 	{
 		*pucRegBuffer++ = (unsigned char)(ModeRele >> 8);
 		*pucRegBuffer++ = (unsigned char)(ModeRele & 0xFF);
 	}
-	else if(usAddress==7778)
+  else if(usAddress==7778)
 	{
 		*pucRegBuffer++ = (unsigned char)(GlobalAddress >> 8);
 		*pucRegBuffer++ = (unsigned char)(GlobalAddress & 0xFF);
 	}
+  else if(usAddress==121)
+  	{
+		*pucRegBuffer++ = (unsigned char)(SerialNumber_0 >> 8);
+		*pucRegBuffer++ = (unsigned char)(SerialNumber_0 & 0xFF);
+  	}
+  else if(usAddress==122)
+  	{
+		*pucRegBuffer++ = (unsigned char)(SerialNumber_1 >> 8);
+		*pucRegBuffer++ = (unsigned char)(SerialNumber_1 & 0xFF);
+  	}
+  else if(usAddress==123)
+  	{
+		*pucRegBuffer++ = (unsigned char)(SerialNumber_2 >> 8);
+		*pucRegBuffer++ = (unsigned char)(SerialNumber_2 & 0xFF);
+  	}
+  else if(usAddress==124)
+  	{
+		*pucRegBuffer++ = (unsigned char)(SerialNumber_3 >> 8);
+		*pucRegBuffer++ = (unsigned char)(SerialNumber_3 & 0xFF);
+  	}
   else
   {
     eStatus = MB_ENOREG;
@@ -1073,6 +1131,58 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
 				eStatus = MB_EIO;
 			}
 
+		}
+	}
+	else if(usAddress==121)
+	{
+		if(eMode==MB_REG_READ)
+		{
+			*pucRegBuffer++ = (unsigned char)(SerialNumber_0 >> 8);
+			*pucRegBuffer++ = (unsigned char)(SerialNumber_0 & 0xFF);
+		}
+		else if(eMode==MB_REG_WRITE)
+		{
+			SerialNumber_0 = pucRegBuffer[1] + 256*pucRegBuffer[0];
+			FlagChangeSetting=1;
+		}
+	}
+	else if(usAddress==122)
+	{
+		if(eMode==MB_REG_READ)
+		{
+			*pucRegBuffer++ = (unsigned char)(SerialNumber_1 >> 8);
+			*pucRegBuffer++ = (unsigned char)(SerialNumber_1 & 0xFF);
+		}
+		else if(eMode==MB_REG_WRITE)
+		{
+			SerialNumber_1 = pucRegBuffer[1] + 256*pucRegBuffer[0];
+			FlagChangeSetting=1;
+		}
+	}
+	else if(usAddress==123)
+	{
+		if(eMode==MB_REG_READ)
+		{
+			*pucRegBuffer++ = (unsigned char)(SerialNumber_2 >> 8);
+			*pucRegBuffer++ = (unsigned char)(SerialNumber_2 & 0xFF);
+		}
+		else if(eMode==MB_REG_WRITE)
+		{
+			SerialNumber_2 = pucRegBuffer[1] + 256*pucRegBuffer[0];
+			FlagChangeSetting=1;
+		}
+	}
+	else if(usAddress==124)
+	{
+		if(eMode==MB_REG_READ)
+		{
+			*pucRegBuffer++ = (unsigned char)(SerialNumber_3 >> 8);
+			*pucRegBuffer++ = (unsigned char)(SerialNumber_3 & 0xFF);
+		}
+		else if(eMode==MB_REG_WRITE)
+		{
+			SerialNumber_3 = pucRegBuffer[1] + 256*pucRegBuffer[0];
+			FlagChangeSetting=1;
 		}
 	}
 	else
