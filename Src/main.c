@@ -303,7 +303,7 @@ R_average = Rse; //берем как среднее текущее значен�
 }
 void ModeAlarm()
 {
-	ExceedanceCounter++;
+	ExceedanceCounter++;//Счетчик ошибок
 	usRegAnalog[11] = ExceedanceCounter;
 	TIM15->CR1 |= TIM_CR1_CEN;//запуск таймера 15
 	if(ModeRele==1)//Режим залипания реле
