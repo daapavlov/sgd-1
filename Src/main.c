@@ -119,14 +119,21 @@ float R1=1.6f; //1.6kOm
 float Rse = 0.f; //Сопротивление чувствительного элемента
 uint16_t R_average = 0; //Напряжение усредненное
 float S=0.f, A=31.25f, B=3.3f, C=10.f, D=0.98f, F=0.5f, G=1.06f;
-uint8_t SecondsCounter = 0;
-uint8_t MinuteCounter = 0;
+uint8_t SecondsCounter = 0, SecondsCounter15 = 0;
+uint8_t MinuteCounter = 0, MinuteCounter15 = 0;
 uint16_t ArrayOfResistanceMeasurementsPerMinute[60];
 uint16_t ArrayOfResistanceMeasurementsPerSecond[60];
 uint16_t ExceedanceCounter;
 uint16_t TargetConcentration;
 uint8_t FlagHourExpired=0;
 
+uint16_t ArrayOfResistanceMeasurementsPerMinute15[15];
+uint16_t ArrayOfResistanceMeasurementsPerSecond15[15];
+
+uint16_t R15min=0, R15sek=0;
+float S15min=0.f, S15sek=0.f;
+uint16_t Signal=0;
+uint8_t Flag15min=0;
 
 uint8_t ServiceMessage[20] = {83, 71, 68, 45, 1, 92, 116, 0, 92, 116,  0, 0, 92, 116, 0, 92, 116, 0, 92, 110};
 							/*{SGD-1\t<Адрес устройства>\t<Концентрация>\t<R>\t<R0>/n}*/
@@ -168,7 +175,7 @@ int main(void)
   MT_PORT_SetTimerModule(&htim16);
   MT_PORT_SetUartModule(&huart2);
 
-//  IWDG_Init();
+  IWDG_Init();
 
   while(SecondsCounter<30 && MinuteCounter<1) //1.5 минуты прогреваем
   {
@@ -247,7 +254,7 @@ R_average = Rse; //берем как среднее текущее значен�
 
 	  eMBPoll(); //Проверка сообщений по modBus
 
-	  if(TimerFlagTIM3)//каждую секунду меряем
+	  if(TimerFlagTIM3)//каждую секунду
 	  {
 			if(GlobalAddress != GlobalAddressFlesh)//если изменен адрес устройства, то проводится переинициализация
 			{
@@ -257,7 +264,7 @@ R_average = Rse; //берем как среднее текущее значен�
 				GlobalAddressFlesh = GlobalAddress;
 			}
 
-		  GasMeasurement();//Измерение
+		  GasMeasurement();//Измерение и расчет концентрации
 
 		  //Заполнение сервесной строки вывода в уарт
 		  ServiceMessage[7] = GlobalAddress;
@@ -285,7 +292,7 @@ R_average = Rse; //берем как среднее текущее значен�
 		  TimerFlagTIM3=0;
 	  }
 
-	  if(S>(TargetConcentration+TargetConcentration))//если концентрация превысила заданное значение
+	  if(S>(TargetConcentration+TargetConcentration*0.1))//если концентрация превысила заданное значение на 10%
 	  {
 		  ModeAlarm();
 	  }
@@ -303,8 +310,8 @@ void ModeAlarm()
 	{
 		GPIOB->BSRR |= GPIO_BSRR_BS_12;
 		uint8_t FlagZalip=0;
-		//крутимся если концентрация выше уставки и если она упала, но не было выключено реле, то тоже крутимся
-		while(S>(TargetConcentration-TargetConcentration*0.5) || (S<(TargetConcentration-TargetConcentration*0.1) && FlagZalip==0))//залипание реле
+		//крутимся если концентрация выше уставки на 50% и если она упала, но не было выключено реле, то тоже крутимся
+		while(S>(TargetConcentration-TargetConcentration*0.5) || (S<(TargetConcentration-TargetConcentration*0.1) && FlagZalip==0))
 		{
 			usRegAnalog[1] = (uint16_t)18; //передается сообщение тревоги
 			StatusMode = 18;
@@ -372,7 +379,7 @@ void ModeAlarm()
 		StatusMode = 13;//переходим в режим норма
 
 	}
-	TIM15->CR1 &= ~TIM_CR1_CEN;
+	TIM15->CR1 &= ~TIM_CR1_CEN;//Выключение таймер
 }
 void Setting_Init()
 {
@@ -441,8 +448,10 @@ void Setting_Init()
 void GasMeasurement()
 {
 		SecondsCounter++; //Считаем одну секунду
-		VoltageInR2 = 3.3f * ADC_Read() / 4096.0f;//Переводим значение АЦП (12бит) в вольты
+		SecondsCounter15++;//Считаем одну секунду
 
+		//Каждую секунду вычисляем сопротивление чувствительного элемента
+		VoltageInR2 = 3.3f * ADC_Read() / 4096.0f;//Переводим значение АЦП (12бит) в вольты
 		if(VoltageInR2==0) //Не поступает сигнал с датчика
 		{
 			StatusMode = 23;
@@ -452,55 +461,122 @@ void GasMeasurement()
 		Use = 5.0f - VoltageInR2 - Ir2*(double)(R1*1000);//вычиляем напряжение на чувств элементе
 		Rse = Use/(double)(Ir2*1000.f);//находим сопротивление чувствительного элемента в кОм
 
-		ArrayOfResistanceMeasurementsPerSecond[SecondsCounter-1] = (uint8_t)Rse;//запись текущего сопротивления в массив, для нахождения среднего
-
-		if(SecondsCounter==60)//когда прошла минута
+		if(SecondsCounter>0 && SecondsCounter<61)
 		{
-			MinuteCounter++;
+			ArrayOfResistanceMeasurementsPerSecond[SecondsCounter-1] = (uint16_t)Rse;//запись текущего сопротивления в массив, для нахождения среднего за 60 сек
+		}
+		if(SecondsCounter15>0 && SecondsCounter15<16)
+		{
+			ArrayOfResistanceMeasurementsPerSecond15[SecondsCounter15-1] = (uint16_t)Rse;//запись текущего сопротивления в массив, для нахождения среднего за 15 сек
+		}
+
+
+
+		if(SecondsCounter15==15)//прошло 15 секунд
+		{
+			uint32_t Sum15sek=0;
+
+			for(int i=0; i<15; i++)
+			{
+				Sum15sek+=ArrayOfResistanceMeasurementsPerSecond15[i];
+			}
+			R15sek = Sum15sek/15;//нашли бегущее среднее за 15 секунд
+			SecondsCounter15=0;
+		}
+
+
+		if(SecondsCounter==60)//прошла минута
+		{
+			MinuteCounter++;//Считаем минуты для R0
+			MinuteCounter15++;//Считаем минуты для R15
+
+			//Находим бегущее среднее за минуту
 			uint32_t Sum=0;
 			uint16_t Srednee=0;
-			//Находим среднее сопротивление за минуту
 			for(int i=0; i<60; i++)
 			{
 				Sum+=ArrayOfResistanceMeasurementsPerSecond[i];
 			}
 			Srednee = Sum/60;
-			ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] = (uint8_t)Srednee;//записали среднее значение в массив за минуту измерений
+			if(MinuteCounter>0 && MinuteCounter<61)
+			{
+				ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] = (uint8_t)Srednee;//записали среднее значение в массив за минуту измерений
+			}
+
+			if(MinuteCounter15>0 && MinuteCounter15<16)
+			{
+				ArrayOfResistanceMeasurementsPerMinute15[MinuteCounter15-1] = (uint8_t)Srednee;//записали среднее значение в массив за минуту измерений
+			}
+
 			SecondsCounter=0;
 
-			if(R_average<ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1])//если текущее сопротивление выше, чем сопротивление среднее,
-			{																		//	то приравниваем
+			if(Flag15min==0)
+			{
+				R15min = ArrayOfResistanceMeasurementsPerMinute15[MinuteCounter15-1];//R15 будет равно последниму измеренному значению, пока не будет заполнен массив
+			}
+
+			if(MinuteCounter15==15)//когда прошло 15 минут
+			{
+				uint32_t Sum15min=0;
+				for(int i=0; i<15; i++)
+				{
+					Sum15min+=ArrayOfResistanceMeasurementsPerMinute15[i];
+				}
+				R15min = Sum15min/15; //Бегущее среднее сопротивления за 15 минут
+				MinuteCounter15=0;
+				Flag15min=1;//выставляется единыжды
+			}
+
+			if(R_average<ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] && FlagHourExpired!=1)//если текущее сопротивление выше, чем сопротивление среднее,
+			{																		//	и не выставлен флаг о прошествии часа
 				R_average = ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1];//записали среднее сопротивление
 			}
-			if(MinuteCounter==60 || FlagHourExpired==1)//каждую минуту пишем
+
+			if((MinuteCounter==60) || (FlagHourExpired==1))//каждую минуту пишем
 			{
 				uint32_t Sum2=0;
-				uint16_t Srednee2=0;
 				//Находим среднее сопротивление за час
 				for(int i=0; i<60; i++)
 				{
 					Sum2+=ArrayOfResistanceMeasurementsPerMinute[i];
 				}
-				Srednee2 = Sum/60;
-				R_average = Srednee2;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
+				R_average = Sum2/60;;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
 												//добавление в массив нового занчения каждую минуту
 				FlagHourExpired=1;//флаг выставляется, когда прошел час и пишется скользящее среднее
 				if(MinuteCounter==60)
 				{
 					MinuteCounter=0;
 				}
-
 			}
 		}
 
-		S=(-A*(B+C/(Rse))*logf(-(-D-F/R_average + (R_average - Rse)/(R_average * G))));//вычисляем концентацию
-		if(S<0)
+		if(R_average!=0)
 		{
-			S=0;
+			if(R15min>0)
+			{
+				S15min = (-A*(B+C/(R15min))*logf(-(-D-F/R_average + (R_average - R15min)/(R_average * G))));//вычисляем концентацию для R15минут
+			}
+
+			if(R15sek>0)
+			{
+				S15sek = (-A*(B+C/(R15sek))*logf(-(-D-F/R_average + (R_average - R15sek)/(R_average * G))));//вычисляем концентацию для R15секунд
+			}
 		}
 
+		//находим разницу концентраций измеренных за 15 минут и 15 секунд
+		if(S15sek>S15min)
+		{
+			Signal = S15sek-S15min;
+		}
+		else
+		{
+			Signal = 0;
+		}
+
+		S=Signal;
+
 		//пишем значения в регистры модбас
-		usRegAnalog[2] = (uint16_t)(S);
+		usRegAnalog[2] = (uint16_t)(Signal);
 		usRegAnalog[3] = (uint16_t)(R_average);
 		usRegAnalog[4] = (uint16_t)(Rse);
 }
@@ -980,10 +1056,7 @@ void CheckingKeyTimings()
 	{
 		LongDoublePressKey_PB2_PB8=1;
 	}
-	/*else if(TimerCounterTIM14>=9000 && ClickFlag_PB8==0 && ClickFlag_PB2==0)
-	{
-		LongLongDoublePressKey_PB2_PB8=1;
-	}*/
+
 }
 
 eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNRegs)
