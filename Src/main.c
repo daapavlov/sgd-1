@@ -126,7 +126,8 @@ uint16_t ArrayOfResistanceMeasurementsPerSecond[60];
 uint16_t ExceedanceCounter;
 uint16_t TargetConcentration;
 uint8_t FlagHourExpired=0;
-
+uint8_t Flag_MinuteCounter15=0;
+uint8_t Flag_SecondsCounter15=0;
 uint16_t ArrayOfResistanceMeasurementsPerMinute15[15];
 uint16_t ArrayOfResistanceMeasurementsPerSecond15[15];
 
@@ -194,7 +195,7 @@ int main(void)
 	  }
 	  IWDG_Reset(); //Обновление сторожевого таймера
   }
-R_average = Rse; //берем как среднее текущее значение сопротивления
+  R_average = Rse; //берем как среднее текущее значение сопротивления
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -447,138 +448,158 @@ void Setting_Init()
 }
 void GasMeasurement()
 {
-		SecondsCounter++; //Считаем одну секунду
-		SecondsCounter15++;//Считаем одну секунду
+	SecondsCounter++; //Считаем одну секунду
+	SecondsCounter15++;
 
-		//Каждую секунду вычисляем сопротивление чувствительного элемента
-		VoltageInR2 = 3.3f * ADC_Read() / 4096.0f;//Переводим значение АЦП (12бит) в вольты
-		if(VoltageInR2==0) //Не поступает сигнал с датчика
+	//Производим измерение сопротивления сенсора
+	VoltageInR2 = 3.3f * ADC_Read() / 4096.0f;//Переводим значение АЦП (12бит) в вольты
+	Ir2 = (double)VoltageInR2/(double)(R2*1000);//Вычисляем ток в цепи
+	Use = 5.0f - VoltageInR2 - Ir2*(double)(R1*1000);//вычиляем напряжение на чувств элементе
+	Rse = Use/(double)(Ir2*1000.f);//находим сопротивление чувствительного элемента в кОм
+
+	//Записываем каждую секунду данные в массывы, для нахождения скользящего среднего каждую секунду
+	if(SecondsCounter>0 && SecondsCounter<=60)//проверяем счетчик на правильный доступ к памяти
+	{
+		ArrayOfResistanceMeasurementsPerSecond[SecondsCounter-1] = (uint16_t)Rse;//записываем значение сопротивления сенсора в массив для нахождения среднего за 1 минуту
+	}
+	if(SecondsCounter15>0 && SecondsCounter15<=15)//проверяем счетчик на правильный доступ к памяти
+	{
+		ArrayOfResistanceMeasurementsPerSecond15[SecondsCounter15-1] = (uint16_t)Rse;//записываем значение сопротивления сенсора в массив для нахождения среднего за 15 секунд
+	}
+
+	//Находим скользящее среднее за 15 секунд
+	if(MinuteCounter>0 || FlagHourExpired==1)
+	{
+		uint32_t Sum15sek=0;
+		for(uint8_t i=0; i<15; i++)
 		{
-			StatusMode = 23;
+			Sum15sek+=ArrayOfResistanceMeasurementsPerSecond15[i];
+		}
+		R15sek = Sum15sek/15;//нашли скользящее среднее за 15 секунд
+	}
+
+	if(SecondsCounter15==15)
+	{
+		SecondsCounter15=0;
+	}
+
+	if(SecondsCounter==60)//Прошла одна минута
+	{
+		MinuteCounter++;//Считаем минуты
+		MinuteCounter15++;//Считаем минуты
+
+		//Находим бегущее среднее за минуту
+		uint32_t Sum=0;
+		uint16_t Srednee=0;
+		for(int i=0; i<60; i++)
+		{
+			Sum+=ArrayOfResistanceMeasurementsPerSecond[i];
+		}
+		Srednee = Sum/60;
+
+		//Записываем каждую минуту данные в массивы, для нахождения скользящего среднего
+		if(MinuteCounter>0 && MinuteCounter<61)
+		{
+			ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] = (uint8_t)Srednee;//Записали минутное измеренное значение в массив
+		}
+		if(MinuteCounter>0 && MinuteCounter<=15)
+		{
+			ArrayOfResistanceMeasurementsPerMinute15[MinuteCounter15-1] = (uint8_t)Srednee;//Записали минутное измеренное значение в массив
 		}
 
-		Ir2 = (double)VoltageInR2/(double)(R2*1000);//Вычисляем ток в цепи
-		Use = 5.0f - VoltageInR2 - Ir2*(double)(R1*1000);//вычиляем напряжение на чувств элементе
-		Rse = Use/(double)(Ir2*1000.f);//находим сопротивление чувствительного элемента в кОм
-
-		if(SecondsCounter>0 && SecondsCounter<61)
+		//Находим скользящее среднее за 15 минут
+		if(MinuteCounter>=15 || FlagHourExpired==1)//Если массив минут уже имеет 15 значений или прошел час, тогда массив точно имеет 15 значений и каждую минуту вычисляем среднее r15мин
 		{
-			ArrayOfResistanceMeasurementsPerSecond[SecondsCounter-1] = (uint16_t)Rse;//запись текущего сопротивления в массив, для нахождения среднего за 60 сек
-		}
-		if(SecondsCounter15>0 && SecondsCounter15<16)
-		{
-			ArrayOfResistanceMeasurementsPerSecond15[SecondsCounter15-1] = (uint16_t)Rse;//запись текущего сопротивления в массив, для нахождения среднего за 15 сек
-		}
+			uint32_t Sum15min=0;
 
-
-
-		if(SecondsCounter15==15)//прошло 15 секунд
-		{
-			uint32_t Sum15sek=0;
-
-			for(int i=0; i<15; i++)
+			for(uint8_t i=0; i<15; i++)
 			{
-				Sum15sek+=ArrayOfResistanceMeasurementsPerSecond15[i];
+				Sum15min+=ArrayOfResistanceMeasurementsPerMinute15[i];
 			}
-			R15sek = Sum15sek/15;//нашли бегущее среднее за 15 секунд
-			SecondsCounter15=0;
+			R15min = Sum15min/15;//нашли скользящее среднее за 15 минут
+		}
+		else
+		{
+			uint32_t Sum15min=0;
+			for(uint8_t i=0; i<MinuteCounter; i++)
+			{
+				Sum15min+=ArrayOfResistanceMeasurementsPerMinute15[i];
+			}
+			R15min = Sum15min/MinuteCounter;//нашли скользящее среднее за 15 минут
 		}
 
 
-		if(SecondsCounter==60)//прошла минута
+		if(MinuteCounter==60)//прошел один час
 		{
-			MinuteCounter++;//Считаем минуты для R0
-			MinuteCounter15++;//Считаем минуты для R15
+			FlagHourExpired=1;//Установили флаг того, что прошел один час
+			MinuteCounter=0;//обнуляем счетчик
+		}
+		if(MinuteCounter==15)
+		{
+			MinuteCounter15=0;//обнуляем счетчик
+		}
 
-			//Находим бегущее среднее за минуту
-			uint32_t Sum=0;
-			uint16_t Srednee=0;
+		//Находим R0
+		if(FlagHourExpired)
+		{
+			uint32_t Sum2=0;
+			//Находим среднее сопротивление за час
 			for(int i=0; i<60; i++)
 			{
-				Sum+=ArrayOfResistanceMeasurementsPerSecond[i];
+				Sum2+=ArrayOfResistanceMeasurementsPerMinute[i];
 			}
-			Srednee = Sum/60;
-			if(MinuteCounter>0 && MinuteCounter<61)
-			{
-				ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] = (uint8_t)Srednee;//записали среднее значение в массив за минуту измерений
-			}
-
-			if(MinuteCounter15>0 && MinuteCounter15<16)
-			{
-				ArrayOfResistanceMeasurementsPerMinute15[MinuteCounter15-1] = (uint8_t)Srednee;//записали среднее значение в массив за минуту измерений
-			}
-
-			SecondsCounter=0;
-
-			if(Flag15min==0)
-			{
-				R15min = ArrayOfResistanceMeasurementsPerMinute15[MinuteCounter15-1];//R15 будет равно последниму измеренному значению, пока не будет заполнен массив
-			}
-
-			if(MinuteCounter15==15)//когда прошло 15 минут
-			{
-				uint32_t Sum15min=0;
-				for(int i=0; i<15; i++)
-				{
-					Sum15min+=ArrayOfResistanceMeasurementsPerMinute15[i];
-				}
-				R15min = Sum15min/15; //Бегущее среднее сопротивления за 15 минут
-				MinuteCounter15=0;
-				Flag15min=1;//выставляется единыжды
-			}
-
-			if(R_average<ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] && FlagHourExpired!=1)//если текущее сопротивление выше, чем сопротивление среднее,
-			{																		//	и не выставлен флаг о прошествии часа
-				R_average = ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1];//записали среднее сопротивление
-			}
-
-			if((MinuteCounter==60) || (FlagHourExpired==1))//каждую минуту пишем
-			{
-				uint32_t Sum2=0;
-				//Находим среднее сопротивление за час
-				for(int i=0; i<60; i++)
-				{
-					Sum2+=ArrayOfResistanceMeasurementsPerMinute[i];
-				}
-				R_average = Sum2/60;;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
-												//добавление в массив нового занчения каждую минуту
-				FlagHourExpired=1;//флаг выставляется, когда прошел час и пишется скользящее среднее
-				if(MinuteCounter==60)
-				{
-					MinuteCounter=0;
-				}
-			}
+			R_average = Sum2/60;;//записали среднее сопротивление за час, и дальше вычисляем каждую минуту среднее сопроитвление
 		}
 
-		if(R_average!=0)
+		//если текущее сопротивление выше, чем сопротивление среднее, то пишем
+		if(R_average<ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1] && FlagHourExpired!=1)
 		{
-			if(R15min>0)
-			{
-				S15min = (-A*(B+C/(R15min))*logf(-(-D-F/R_average + (R_average - R15min)/(R_average * G))));//вычисляем концентацию для R15минут
-			}
+			R_average = ArrayOfResistanceMeasurementsPerMinute[MinuteCounter-1];//записали среднее сопротивление
+		}
+		SecondsCounter=0;//обнуляем счетчик секунд
+	}
+
+	//если текущее сопротивление выше, чем сопротивление среднее, то пишем
+	if(R_average<R15sek && FlagHourExpired!=1)
+	{
+		R_average = R15sek;//записали среднее сопротивление
+	}
+
+	if(R_average!=0)
+	{
+		if(R15min>0)
+		{
+			S15min = (-A*(B+C/(R15min))*logf(-(-D-F/R_average + (R_average - R15min)/(R_average * G))));//вычисляем концентацию для R15минут
 
 			if(R15sek>0)
 			{
 				S15sek = (-A*(B+C/(R15sek))*logf(-(-D-F/R_average + (R_average - R15sek)/(R_average * G))));//вычисляем концентацию для R15секунд
 			}
 		}
+	}
 
-		//находим разницу концентраций измеренных за 15 минут и 15 секунд
-		if(S15sek>S15min)
-		{
-			Signal = S15sek-S15min;
-		}
-		else
-		{
-			Signal = 0;
-		}
+	//находим разницу концентраций измеренных за 15 минут и 15 секунд
+	if(S15sek>S15min)
+	{
+		Signal = S15sek-S15min;
+	}
+	else
+	{
+		Signal = 0;
+	}
 
-		S=Signal;
+	S=Signal;
 
-		//пишем значения в регистры модбас
-		usRegAnalog[2] = (uint16_t)(Signal);
-		usRegAnalog[3] = (uint16_t)(R_average);
-		usRegAnalog[4] = (uint16_t)(Rse);
+	//пишем значения в регистры модбас
+	usRegAnalog[2] = (uint16_t)(Signal);
+	usRegAnalog[3] = (uint16_t)(R_average);
+	usRegAnalog[4] = (uint16_t)(Rse);
+
+	if((MinuteCounter>30 && R_average<10) || VoltageInR2==0) //Если за 30 минут сопротивление R0 ниже 10кОм или не поступает сигнал с датчика
+	{
+		StatusMode = 23;//выставляем статус ошибки
+	}
+
 }
 void IWDG_Init()
 {
