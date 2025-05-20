@@ -11,35 +11,50 @@ void FlashLock()//функция блокировки
 {
     FLASH->CR |= FLASH_CR_LOCK;
 }
+void EraseFlashPage(uint32_t address)
+{
+	while (FLASH->SR & FLASH_SR_BSY);
+	if (FLASH->SR & FLASH_SR_EOP) {
+		FLASH->SR = FLASH_SR_EOP;
+	}
 
-void WriteToFleshMemory(uint32_t Adress, uint8_t *Data, uint32_t LengthData)
+	FLASH->CR |= FLASH_CR_PER;
+	FLASH->AR = address;
+	FLASH->CR |= FLASH_CR_STRT;
+	while (!(FLASH->SR & FLASH_SR_EOP));
+	FLASH->SR = FLASH_SR_EOP;
+	FLASH->CR &= ~FLASH_CR_PER;
+}
+void WriteToFleshMemory(uint32_t Address, uint8_t *Data, uint32_t LengthData)
 {
 	FlashUnlock();//Разблокируем
-	FLASH->CR |= FLASH_CR_PER;//Установим бит очистки
-	FLASH->AR = Adress;
-	FLASH->CR|= FLASH_CR_STRT;//Старт очистки
-	while ((FLASH->SR & FLASH_SR_BSY));//Ожидание очистки
-    FLASH->CR &= ~FLASH_CR_PER;//Сбросим бит очистки
 
-    FLASH->CR |= FLASH_CR_PG; //Разрешаем запись в память
-    while ((FLASH->SR & FLASH_SR_BSY));//Ожидаем
+	EraseFlashPage(Address);
+
+
+	while (FLASH->SR & FLASH_SR_BSY);
+	if (FLASH->SR & FLASH_SR_EOP) {
+		FLASH->SR = FLASH_SR_EOP;
+	}
+
+	FLASH->CR |= FLASH_CR_PG;
+
     int j=0;
-    for(int i=0; i<LengthData*2; i+=2)
-    {
-    	*(__IO uint16_t*)(Adress+i) = (uint16_t)(Data[j]<<8 | Data[j+1]);
-    	j++;
+    for(size_t i = 0; i < LengthData*2; i += 2) {
+        *(volatile uint16_t *)(Address + i) = (uint16_t)(((Data[j]) << 8) | Data[j + 1]);
+        j++;
+        FLASH->SR = FLASH_SR_EOP;
     }
-    FLASH->SR |= FLASH_SR_EOP;//Запрещаем программирование
-    FlashLock();//Заблокируем
+    FLASH->CR &= ~(FLASH_CR_PG);
+	FlashLock();//Заблокируем
 }
-
-void ReadToFleshMemory(uint32_t Adress, uint8_t *Data, uint32_t LengthData)
+void ReadToFleshMemory(uint32_t Address, uint8_t *Data, uint32_t LengthData)
 {
 	int j=0;
     for(int i=0; i<LengthData*2; i+=2)
     {
-    	Data[j] = *(__IO uint16_t*)(Adress+i)>>8;
-    	Data[j+1] = *(__IO uint16_t*)(Adress+i);
+    	Data[j] = *(__IO uint16_t*)(Address+i)>>8;
+    	Data[j+1] = *(__IO uint16_t*)(Address+i);
     	j++;
     }
 }

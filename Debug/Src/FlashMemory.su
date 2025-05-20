@@ -1,4 +1,5 @@
 FlashMemory.c:4:6:FlashUnlock	0	static
 FlashMemory.c:10:6:FlashLock	0	static
-FlashMemory.c:15:6:WriteToFleshMemory	32	static
-FlashMemory.c:36:6:ReadToFleshMemory	16	static
+FlashMemory.c:14:6:EraseFlashPage	0	static
+FlashMemory.c:28:6:WriteToFleshMemory	32	static
+FlashMemory.c:51:6:ReadToFleshMemory	16	static

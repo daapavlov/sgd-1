@@ -17,7 +17,8 @@
 
 void FlashUnlock();
 void FlashLock();
-void WriteToFleshMemory(uint32_t Adress, uint8_t *Data, uint32_t LengthData);
-void ReadToFleshMemory(uint32_t Adress, uint8_t *Data, uint32_t LengthData);
+void EraseFlashPage(uint32_t address);
+void WriteToFleshMemory(uint32_t Address, uint8_t *Data, uint32_t LengthData);
+void ReadToFleshMemory(uint32_t Address, uint8_t *Data, uint32_t LengthData);
 
 #endif /* FLASHMEMORY_H_ */
